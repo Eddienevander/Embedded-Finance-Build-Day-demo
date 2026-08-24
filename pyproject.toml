@@ -1,0 +1,20 @@
+[project]
+name = "trust-layer"
+version = "0.1.0"
+description = "Trust Layer — adversarial multi-agent verification for B2B payment fraud"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=1.0.0",
+    "fastapi>=0.141.1",
+    "pydantic>=2.13.4",
+    "uvicorn[standard]>=0.52.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
