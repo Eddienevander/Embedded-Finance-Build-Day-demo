@@ -362,7 +362,7 @@
     <div class="card"><h3>bankgirot <span class="chip real">REAL · PARSED</span></h3>
       <p>Mod-10 check-digit validation offline (a failing number was never issued). Owner lookup parses public data, because Bankgirot has no API.</p></div>
     <div class="card"><h3>account_registry <span class="chip pitch">THE PITCH</span></h3>
-      <p>"Who owns this account?" Mocked, because Sweden covers only bankgiro numbers today. Norway covers accounts. More in a moment.</p></div>
+      <p>"Who owns this account?" The answers it returns here are simulated. Today Sweden can answer only for bankgiro numbers (Bankgirocentralen) or with the account holder's own consent (open banking), and the fraudster controls that consent. More in a moment.</p></div>
     <div class="card"><h3>open_payments <span class="chip live">LIVE API</span></h3>
       <p>Real PSD2 payment execution: an approved case pays out through the
       Payment Initiation API (swedish-giro + decoupled SCA, sandbox).</p></div>
@@ -411,7 +411,7 @@
 <section class="slide"><div class="inner">
   <h2>The debate is real. This ran today.</h2>
   <div class="evstrip">
-    <div class="evline"><b>account_registry</b> → owner: E. Lindqvist (privatperson) · account age 19 days · recently_opened</div>
+    <div class="evline"><b>account_registry</b><span class="chip pitch" style="font-size:10px; padding:2px 8px; margin-left:4px">SIMULATED</span> → owner: E. Lindqvist (privatperson) · account age 19 days · recently_opened</div>
     <div class="evline"><b>web_intel</b> → no bank-change announcement anywhere public</div>
     <div class="evline g"><b>bankgirot</b> → the OLD account verifiably belongs to Nordisk Ställning AB</div>
     <div class="evline g"><b>payment_history</b> → 30 payments to the old account · 0 to the new IBAN</div>
@@ -502,7 +502,9 @@
         Bankgirocentralen</b> maps bankgiro numbers to owners today, and its public number
         search proves it. But coverage stops at bankgiro aliases: no accounts, no IBANs, no
         API. IMY's sandbox with the four major banks concluded account-level sharing needs
-        <b style="color:var(--text)">legislative change</b> (IMY-2024-14275). The attack in
+        <b style="color:var(--text)">legislative change</b> (IMY-2024-14275). Open banking can
+        return holder names today, but only with the account holder's consent, and in a fraud
+        the account holder is the mule. The attack in
         scenario 2 uses an IBAN: exactly the uncovered space.</p>
     </div>
   </div>
