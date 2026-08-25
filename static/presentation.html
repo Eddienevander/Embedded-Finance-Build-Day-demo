@@ -4,16 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trust Layer</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Instrument+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-  /* Single deliberate dark theme: this is a projector deck, and it wears the
-     product's own design tokens so the pitch and the live demo read as one thing. */
+  /* Single deliberate light theme, sharing the dashboard's editorial system:
+     warm off-white ground, white cards, hairlines, serif display, muted
+     natural agent hues. Deck and live demo read as one product. */
   :root {
-    --ink: #0b0f14; --panel: #131922; --panel2: #1a2230; --line: #26303d;
-    --text: #e8eef4; --muted: #93a1b0; --dim: #5b6572;
-    --blue: #4d9fff; --red: #f87171; --green: #34d399; --violet: #b57bff;
-    --amber: #ffb020; --teal: #2dd4bf;
-    --display: "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --ink: #F7F5F1; --panel: #FFFFFF; --panel2: #F4F1EC; --line: #E6E2DA;
+    --text: #22242A; --muted: #6E6A63; --dim: #A9A49B;
+    --blue: #5E86A8; --red: #A84432; --green: #6E9068; --violet: #8B7A9B;
+    --amber: #A8823C; --teal: #5F8F89;
+    --display: "Playfair Display", Georgia, "Times New Roman", serif;
     --body: "Instrument Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
@@ -35,7 +36,7 @@
   .rail .wordmark { color: var(--text); font-family: var(--display); font-weight: 800;
                     letter-spacing: .08em; }
   .rail .ctx { flex: 1; }
-  #progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--blue);
+  #progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--red);
               width: 0%; z-index: 11; transition: width .25s ease; }
   #counter { font-variant-numeric: tabular-nums; }
   .navhint { position: fixed; bottom: 20px; right: 36px; z-index: 10;
@@ -61,9 +62,9 @@
 
   .eyebrow { font-family: var(--mono); font-size: 14px; letter-spacing: .18em;
              text-transform: uppercase; color: var(--blue); margin-bottom: 18px; }
-  h1 { font-family: var(--display); font-weight: 900; letter-spacing: -.015em;
+  h1 { font-family: var(--display); font-weight: 700; letter-spacing: -.015em;
        font-size: clamp(56px, 9vw, 128px); line-height: .95; text-wrap: balance; }
-  h2 { font-family: var(--display); font-weight: 800; letter-spacing: -.01em;
+  h2 { font-family: var(--display); font-weight: 700; letter-spacing: -.01em;
        font-size: clamp(34px, 4.6vw, 58px); line-height: 1.04; text-wrap: balance;
        margin-bottom: 26px; }
   .lede { font-size: clamp(19px, 1.7vw, 24px); color: var(--muted); max-width: 62ch; }
@@ -79,16 +80,16 @@
   /* chips: the honesty system */
   .chip { display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 700;
           letter-spacing: .08em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
-  .chip.live   { background: #14322a; color: var(--green); }
-  .chip.real   { background: #14322a; color: var(--green); }
-  .chip.mock   { background: #1a2230; color: var(--muted); border: 1px solid var(--line); }
-  .chip.stub   { background: #3a2d12; color: var(--amber); }
-  .chip.proto  { background: #2a1f3d; color: var(--violet); }
-  .chip.pitch  { background: #3d1d1d; color: var(--red); }
-  .chip.solved { background: #14322a; color: var(--green); }
+  .chip.live   { background: #E7EDE2; color: var(--green); }
+  .chip.real   { background: #E7EDE2; color: var(--green); }
+  .chip.mock   { background: #ECE9E3; color: var(--muted); border: 1px solid var(--line); }
+  .chip.stub   { background: #F2EAD6; color: var(--amber); }
+  .chip.proto  { background: #EAE5F0; color: var(--violet); }
+  .chip.pitch  { background: #F3E2DC; color: var(--red); }
+  .chip.solved { background: #E7EDE2; color: var(--green); }
 
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-          padding: 22px 24px; }
+          padding: 22px 24px; box-shadow: 0 1px 2px rgba(34,36,42,.04); }
   .card h3 { font-family: var(--display); font-weight: 800; font-size: 20px; margin-bottom: 8px;
              display: flex; align-items: center; gap: 10px; justify-content: space-between; }
   .card p { color: var(--muted); font-size: 16px; }
@@ -96,18 +97,18 @@
 
   /* invoice mock (slide 2) */
   .invoice { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-             padding: 26px 28px; font-size: 17px; }
+             padding: 26px 28px; font-size: 17px; box-shadow: 0 2px 6px rgba(34,36,42,.05); }
   .invoice .head { display: flex; justify-content: space-between; align-items: baseline;
                    border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 6px; }
   .invoice .head b { font-family: var(--display); font-size: 19px; }
   .invoice .head span { font-family: var(--mono); font-size: 13px; color: var(--dim); }
   .frow { display: flex; justify-content: space-between; gap: 18px; padding: 11px 0;
-          border-bottom: 1px solid #1a212c; }
+          border-bottom: 1px solid #EFECE6; }
   .frow .k { color: var(--muted); }
   .frow .v { font-family: var(--mono); font-size: 15.5px; text-align: right; }
   .frow .ok::after { content: " ✓"; color: var(--green); }
-  .frow.bad { background: linear-gradient(90deg, transparent, rgba(248,113,113,.10));
-              border-bottom-color: rgba(248,113,113,.4); }
+  .frow.bad { background: linear-gradient(90deg, transparent, rgba(168,68,50,.07));
+              border-bottom-color: rgba(168,68,50,.35); }
   .frow.bad .k { color: var(--red); font-weight: 600; }
   .frow.bad .v { color: var(--red); }
   .invoice .note { margin-top: 14px; font-style: italic; color: var(--amber); font-size: 16px; }
@@ -115,6 +116,28 @@
   .stat .n { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 3vw, 44px);
              font-variant-numeric: tabular-nums; }
   .stat .l { color: var(--muted); font-size: 16px; max-width: 34ch; }
+
+  /* agent lane map (slide 4) — same geometry as the live dashboard */
+  .amapwrap { background: var(--panel2); border-radius: 18px; padding: 26px 20px 10px;
+              margin: 26px 0 18px; }
+  .amap { width: 100%; height: auto; display: block; }
+  .amap .lane { fill: none; stroke: #DDD8CF; stroke-width: 2.5; }
+  .amap .nd circle { fill: var(--panel); stroke-width: 3.5; }
+  .amap .nd text { font-family: var(--mono); font-size: 13px; letter-spacing: .14em;
+                   text-anchor: middle; fill: var(--muted); }
+  .amap .nd .g { font-size: 24px; letter-spacing: 0; }
+  .amap .halo { fill: none; stroke-width: 2.5; opacity: .8;
+                transform-box: fill-box; transform-origin: center;
+                animation: dhalo 2.6s ease-out infinite; }
+  @keyframes dhalo { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.75); opacity: 0; } }
+  .amap .h2s { animation-delay: .9s; } .amap .h3s { animation-delay: 1.7s; }
+  @media (prefers-reduced-motion: reduce) { .amap .halo, .amap .amdot { display: none; } }
+  .agcap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+  .agcap div { font-size: 15px; color: var(--muted); }
+  .agcap b { display: block; font-family: var(--display); font-weight: 700; font-size: 19px;
+             margin-bottom: 4px; color: var(--text); }
+  .agcap .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 50%;
+                   margin-right: 7px; vertical-align: baseline; }
 
   /* pipeline diagram (slide 4) */
   .pipe { display: flex; align-items: stretch; gap: 0; margin: 34px 0 10px; }
@@ -153,13 +176,13 @@
   .evline.g { border-left-color: var(--green); }
   .evline b { color: var(--text); font-weight: 600; }
   .argue { border-radius: 14px; padding: 24px 26px; background: var(--panel); font-size: 18px; }
-  .argue.skeptic { border: 1px solid rgba(248,113,113,.45); }
-  .argue.advocate { border: 1px solid rgba(52,211,153,.45); }
+  .argue.skeptic { border: 1px solid rgba(168,68,50,.4); }
+  .argue.advocate { border: 1px solid rgba(110,144,104,.45); }
   .argue h3 { font-family: var(--display); font-weight: 800; font-size: 17px;
               letter-spacing: .06em; margin-bottom: 12px; }
   .argue.skeptic h3 { color: var(--red); } .argue.advocate h3 { color: var(--green); }
   .verdictbar { margin-top: 26px; display: flex; gap: 22px; align-items: center;
-                background: var(--panel); border: 1px solid rgba(248,113,113,.5);
+                background: var(--panel); border: 1px solid rgba(168,68,50,.45);
                 border-radius: 14px; padding: 20px 26px; }
   .verdictbar .dec { font-family: var(--display); font-weight: 900; font-size: 40px;
                      color: var(--red); letter-spacing: .02em; }
@@ -170,7 +193,7 @@
   table { width: 100%; border-collapse: collapse; font-size: 17px; }
   th { font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
        color: var(--dim); text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-  td { padding: 13px 14px; border-bottom: 1px solid #1a212c; vertical-align: top; }
+  td { padding: 13px 14px; border-bottom: 1px solid #EFECE6; vertical-align: top; }
   td.mono { font-size: 15px; color: var(--muted); }
   tr.hl td { background: rgba(77,159,255,.06); }
   .vd { font-family: var(--display); font-weight: 800; white-space: nowrap; }
@@ -180,7 +203,7 @@
   .footline b { color: var(--text); }
 
   /* close */
-  .bigclose { font-family: var(--display); font-weight: 900; letter-spacing: -.015em;
+  .bigclose { font-family: var(--display); font-weight: 700; letter-spacing: -.015em;
               font-size: clamp(40px, 6vw, 84px); line-height: 1.02; text-wrap: balance; }
   .bigclose .dead { color: var(--red); }
   .bigclose .ans { color: var(--green); }
@@ -272,18 +295,57 @@
 <!-- 4 · the agent loop -->
 <section class="slide"><div class="inner">
   <h2>The claim goes on trial.</h2>
-  <div class="pipe">
-    <div class="stage s-det"><div class="who"><span class="dot"></span>Detector</div>
-      <p>Deterministic diff against the baseline. No LLM. The only agent allowed to say "nothing happened".</p></div>
-    <div class="stage s-inv"><div class="who"><span class="dot"></span>Investigator</div>
-      <p>Tool loop over the evidence sources. Gathers facts, tags each fraud / legit / neutral. Never concludes.</p></div>
-    <div class="stage s-deb"><div class="vs"><span class="side r">Skeptic</span><span style="color:var(--dim)">vs</span><span class="side g">Advocate</span></div>
-      <p>One argues fraud, one argues legitimate. Opening + one rebuttal each, streamed live. Same evidence, opposite briefs.</p></div>
-    <div class="stage s-arb"><div class="who"><span class="dot"></span>Arbiter</div>
-      <p>Weighs the debate into a schema-enforced verdict: approve · block · verify, plus a safe next action.</p></div>
-    <div class="stage s-hum"><div class="who"><span class="dot"></span>Human</div>
-      <p>Approves or blocks with the full evidence in front of them, and approval
-      <b style="color:var(--text)">executes the payment for real</b> over Open Payments PIS.</p></div>
+  <div class="amapwrap">
+    <svg class="amap" viewBox="0 0 1000 240" aria-label="Agent pipeline map">
+      <path class="lane" d="M 24 118 H 112"/>
+      <path class="lane" d="M 188 118 H 342"/>
+      <path class="lane" d="M 414 104 C 472 62, 512 54, 566 54"/>
+      <path class="lane" d="M 414 132 C 472 174, 512 182, 566 182"/>
+      <path class="lane" d="M 634 54 C 694 54, 730 70, 772 104"/>
+      <path class="lane" d="M 634 182 C 694 182, 730 166, 772 132"/>
+      <path class="lane" d="M 844 118 H 912"/>
+      <path class="lane" d="M 150 156 C 150 226, 700 226, 926 152" stroke-dasharray="5 7"/>
+      <g class="nd" transform="translate(150,118)">
+        <circle class="halo" r="34" stroke="#5F8F89"/><circle r="34" stroke="#5F8F89"/>
+        <text class="g" y="8" fill="#5F8F89">◆</text><text y="60">DETECTOR</text></g>
+      <g class="nd" transform="translate(378,118)">
+        <circle class="halo h2s" r="34" stroke="#5E86A8"/><circle r="34" stroke="#5E86A8"/>
+        <text class="g" y="8" fill="#5E86A8">⌕</text><text y="60">INVESTIGATOR</text></g>
+      <g class="nd" transform="translate(600,54)">
+        <circle class="halo h3s" r="30" stroke="#A84432"/><circle r="30" stroke="#A84432"/>
+        <text class="g" y="8" fill="#A84432">☠</text><text y="54">SKEPTIC</text></g>
+      <g class="nd" transform="translate(600,182)">
+        <circle class="halo h3s" r="30" stroke="#6E9068"/><circle r="30" stroke="#6E9068"/>
+        <text class="g" y="8" fill="#6E9068">✓</text><text y="54">ADVOCATE</text></g>
+      <g class="nd" transform="translate(808,118)">
+        <circle class="halo h2s" r="34" stroke="#8B7A9B"/><circle r="34" stroke="#8B7A9B"/>
+        <text class="g" y="8" fill="#8B7A9B">⚖</text><text y="60">ARBITER</text></g>
+      <g class="nd" transform="translate(946,118)">
+        <circle r="34" stroke="#22242A"/>
+        <text class="g" y="7" fill="#22242A" style="font-family:var(--display);font-size:15px;font-weight:700">HUMAN</text>
+        <text y="60">DECIDES</text></g>
+      <!-- ambient pulses riding the lanes -->
+      <circle class="amdot" cx="-40" cy="-40" r="5.5" fill="#5E86A8">
+        <animateMotion dur="3.2s" repeatCount="indefinite" path="M 188 118 H 342"/></circle>
+      <circle class="amdot" cx="-40" cy="-40" r="5" fill="#A84432">
+        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 104 C 472 62, 512 54, 566 54"/></circle>
+      <circle class="amdot" cx="-40" cy="-40" r="5" fill="#6E9068">
+        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 132 C 472 174, 512 182, 566 182"/></circle>
+      <circle class="amdot" cx="-40" cy="-40" r="5" fill="#8B7A9B">
+        <animateMotion dur="3.2s" begin="2.2s" repeatCount="indefinite" path="M 634 54 C 694 54, 730 70, 772 104"/></circle>
+    </svg>
+  </div>
+  <div class="agcap">
+    <div><b><span class="swatch" style="background:#5F8F89"></span>Detector</b>
+      Deterministic diff, no LLM. The only agent allowed to say "nothing happened".</div>
+    <div><b><span class="swatch" style="background:#5E86A8"></span>Investigator</b>
+      Works six evidence sources. Gathers facts. Never concludes.</div>
+    <div><b><span class="swatch" style="background:#A84432"></span>Skeptic</b>
+      Briefed to argue fraud. Same evidence, hostile reading.</div>
+    <div><b><span class="swatch" style="background:#6E9068"></span>Advocate</b>
+      Briefed to defend the supplier relationship. Attacks weak fraud claims.</div>
+    <div><b><span class="swatch" style="background:#8B7A9B"></span>Arbiter</b>
+      Weighs the debate into a schema-enforced verdict and a safe next step.</div>
   </div>
   <div class="offramp">↳ no claims? the invoice never enters the loop: auto-approved in &lt;1s</div>
   <div class="buswrap"><div class="bus"><span class="beat"></span>
