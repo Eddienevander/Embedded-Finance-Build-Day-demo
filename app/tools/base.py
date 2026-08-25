@@ -42,23 +42,32 @@ class ToolRegistry:
 
 
 def build_registry(db: Database, mock: bool) -> ToolRegistry:
+    from app import config
     from app.tools.account_registry import MockAccountRegistryTool
     from app.tools.bolagsverket import BolagsverketRealTool, MockBolagsverketTool
     from app.tools.invoice_archive import InvoiceArchiveTool
-    from app.tools.payment_history import MockPaymentHistoryTool, OpenPaymentsRealTool
+    from app.tools.payment_history import MockPaymentHistoryTool
     from app.tools.web_intel import MockWebIntelTool, WebIntelRealTool
+    from app.tools.zwapgrid_real import ZwapgridPaymentHistoryTool
 
     if mock:
+        payment_history = (
+            ZwapgridPaymentHistoryTool()
+            if config.ZWAPGRID_LIVE_PAYMENT_HISTORY
+            else MockPaymentHistoryTool(db)
+        )
         return ToolRegistry([
             MockBolagsverketTool(),
-            MockPaymentHistoryTool(db),
+            payment_history,
             MockAccountRegistryTool(),  # MOCK ONLY — this API doesn't exist (that's the pitch)
             MockWebIntelTool(),
             InvoiceArchiveTool(db),  # always real: queries our own SQLite
         ])
     return ToolRegistry([
         BolagsverketRealTool(),
-        OpenPaymentsRealTool(),
+        # Zwapgrid-backed, not Open Payments (OpenPaymentsRealTool needs OAuth2
+        # creds we don't have) — see ZwapgridPaymentHistoryTool's docstring.
+        ZwapgridPaymentHistoryTool(),
         MockAccountRegistryTool(),  # no real implementation exists — see README
         WebIntelRealTool(),
         InvoiceArchiveTool(db),

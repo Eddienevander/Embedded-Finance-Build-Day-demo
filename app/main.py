@@ -19,8 +19,23 @@ from app.models import Invoice
 from app.orchestrator import CASES, get_registry, load_persisted_cases, rerun_case
 from app.replay import available_recordings, has_recording, replay_scenario
 from app.seed import SCENARIOS, make_scenario_invoices
+from app.tools.zwapgrid_real import ZwapgridRealTool
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+"""
+TODO:
+- Add Email functionality, optional for users, they select it.
+In case they select email func, we mail details of the invoice to the user (for now hardcode one of our Froda emails).
+
+- Add Agents for various scenarios, like: double checking claims that are not obvious, such as bankgiro claims, etc. In case of high risk claims, we can use this agents to double check the claims.
+- Add funcitonality for simple checks like does this this invoice exists in other ERP systems, etc.
+- Add real functionality for Zwapgrid + OpenPayments
+
+Presentation layer:
+- Improve UI and design
+- Nice presentation slides.
+"""
 
 _BACKGROUND: set[asyncio.Task] = set()
 # Overlapping replays of the same recording would apply stale case states on top
@@ -69,6 +84,38 @@ async def run_scenario(name: str) -> dict:
             "case_ids": [c.id for c in cases],
         })
     return {"scenario": name, "invoices": results}
+
+
+@app.post("/demo/zwapgrid-sync")
+async def sync_zwapgrid() -> dict:
+    """Pull real invoices from the connected Zwapgrid consent and run any
+    we haven't seen yet through the same intake path as /invoices. Lets the
+    real Fortnox/Xero-connected sandbox data feed real cases, instead of only
+    the scripted fictional scenarios."""
+    db = get_db()
+    try:
+        invoices = await ZwapgridRealTool().fetch_incoming_invoices()
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+
+    results = []
+    for invoice in invoices:
+        if db.invoice_exists(invoice.id):
+            continue
+        cases = await process_invoice(invoice, db)
+        results.append({
+            "invoice_id": invoice.id,
+            "supplier_name": invoice.supplier_name,
+            "auto_approved": not cases,
+            "case_ids": [c.id for c in cases],
+        })
+
+    return {
+        "fetched": len(invoices),
+        "new": len(results),
+        "skipped_already_seen": len(invoices) - len(results),
+        "invoices": results,
+    }
 
 
 @app.get("/demo/recordings")

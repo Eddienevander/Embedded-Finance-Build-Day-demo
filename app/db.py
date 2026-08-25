@@ -118,6 +118,9 @@ class Database:
     def set_invoice_status(self, invoice_id: str, status: str) -> None:
         self._exec("UPDATE invoices SET status=? WHERE id=?", (status, invoice_id))
 
+    def invoice_exists(self, invoice_id: str) -> bool:
+        return self._exec("SELECT 1 FROM invoices WHERE id=?", (invoice_id,)).fetchone() is not None
+
     def get_invoice(self, invoice_id: str) -> Invoice | None:
         row = self._exec("SELECT * FROM invoices WHERE id=?", (invoice_id,)).fetchone()
         if row is None:

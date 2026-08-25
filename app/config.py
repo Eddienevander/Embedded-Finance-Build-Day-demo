@@ -30,6 +30,12 @@ ZWAPGRID_BASE_URL: str = os.getenv("ZWAPGRID_BASE_URL", "https://apione.zwapgrid
 ZWAPGRID_API_KEY: str | None = os.getenv("ZWAPGRID_API_KEY")
 ZWAPGRID_CONSENT_ID: str | None = os.getenv("ZWAPGRID_CONSENT_ID")
 
+# Lets MOCK_MODE=true keep every other tool mocked (scripted demo scenarios
+# keep working) while swapping just `payment_history` for the real
+# Zwapgrid-backed tool — narrow way to verify the Zwapgrid wiring locally
+# without needing the other *_real.py stubs finished.
+ZWAPGRID_LIVE_PAYMENT_HISTORY: bool = _env_bool("ZWAPGRID_LIVE_PAYMENT_HISTORY", "false")
+
 # A hung LLM call must never freeze the demo: hard per-request timeout.
 LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "90"))
 LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "2000"))

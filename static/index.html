@@ -185,6 +185,11 @@
       <button data-scenario="legit_bank_change" onclick="fire('legit_bank_change')">Legit bank change</button>
       <button data-scenario="double_finance" onclick="fire('double_finance')">Double financing</button>
     </div>
+    <h2>Real data</h2>
+    <div class="scenarios">
+      <button onclick="syncZwapgrid()">⇄ Sync Zwapgrid (real sandbox)</button>
+    </div>
+    <div id="zwapgrid-sync-result" class="human-note"></div>
     <h2>Case queue</h2>
     <div id="queue"><div class="empty">Fire a scenario to start.</div></div>
   </section>
@@ -275,6 +280,23 @@ async function loadRecordings() {
 async function fire(name) {
   const url = mode === "replay" ? `/demo/replay/${name}` : `/demo/scenario/${name}`;
   await fetch(url, { method: "POST" });
+}
+
+async function syncZwapgrid() {
+  const out = $("#zwapgrid-sync-result");
+  out.textContent = "Syncing…";
+  try {
+    const res = await fetch("/demo/zwapgrid-sync", { method: "POST" });
+    const body = await res.json();
+    if (!res.ok) {
+      out.textContent = `Error: ${body.detail || res.statusText}`;
+      return;
+    }
+    out.textContent = `Fetched ${body.fetched}, ${body.new} new, ${body.skipped_already_seen} already seen.`;
+    refreshCases();
+  } catch (e) {
+    out.textContent = `Error: ${e}`;
+  }
 }
 
 async function refreshCases() {
