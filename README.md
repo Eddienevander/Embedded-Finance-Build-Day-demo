@@ -56,12 +56,26 @@ queue does not fill up with duplicates.
 
 ## The pitch
 
-`app/tools/account_registry.py` (the tool that cracks the headline case) is a
-**fictional API**. No shared "who owns this bankgiro/IBAN?" registry exists today. That
-is the missing infrastructure this demo argues for (cf. IMY's bank-data-sharing sandbox).
-Everything else has a real counterpart: Zwapgrid invoice interchange is implemented
-against the real Accounting API in `app/tools/zwapgrid_real.py` (needs credentials),
-and Bolagsverket and Open Payments have stubbed adapters behind the same `EvidenceTool`
+`app/tools/account_registry.py` (the tool that cracks the headline case) answers "who
+owns this account?". That is not science fiction: **Norway already runs it as
+infrastructure**. KAR (Konto- og adresseringsregister, operated by the banks through
+Bits) lets a Norwegian bank verify that an account number actually belongs to the person
+or company being paid, before the payment goes out. Sweden has no equivalent: here the
+tool is a mock, and IMY's regulatory sandbox with SEB, Nordea, Swedbank and Handelsbanken
+concluded that this kind of data sharing between banks needs legislative change
+(IMY-2024-14275, May 2025). The demo shows what the day after that legislation looks like.
+
+Two slices of it are real today:
+
+- `app/tools/bankgirot.py` validates bankgiro numbers offline (mod-10 check digit: a
+  number that fails was never issued by Bankgirot) and models the owner lookup on
+  Bankgirot's public number search, which exposes account-holder names through a website
+  but no API. Parsing beats waiting for an API that does not exist.
+- Zwapgrid invoice interchange is implemented against the real Accounting API in
+  `app/tools/zwapgrid_real.py`, and can serve live payment history via the dashboard's
+  real-integrations toggle.
+
+Bolagsverket and Open Payments have stubbed adapters behind the same `EvidenceTool`
 interface, ready to wire in at the venue.
 
 Note that even the real Zwapgrid feed carries no authoritative bank account field, which

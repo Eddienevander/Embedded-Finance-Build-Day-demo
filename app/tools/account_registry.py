@@ -1,9 +1,12 @@
-"""Account -> owner (orgnr) ownership lookup. MOCK ONLY.
+"""Account -> owner (orgnr) ownership lookup. MOCK ONLY in Sweden.
 
-This API does not exist in Sweden today — a shared account-ownership registry
-(who owns bankgiro/IBAN X?) is exactly the missing infrastructure this demo's
-pitch argues for (cf. IMY's bank-data-sharing sandbox). The mock shows what
-fraud detection looks like the day it exists.
+The precedent is real: Norway's KAR (Konto- og adresseringsregister, operated
+by the banks through Bits) lets a bank verify that an account belongs to the
+person or company being paid, before paying. Sweden has no equivalent — IMY's
+bank-data-sharing sandbox (IMY-2024-14275) concluded that sharing of this kind
+needs legislative change. This mock shows what fraud detection looks like the
+day Sweden has its KAR. See app/tools/bankgirot.py for the slice that is
+already buildable by parsing public Bankgirot data.
 """
 
 from pydantic import BaseModel, Field

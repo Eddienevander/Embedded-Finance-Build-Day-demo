@@ -18,6 +18,10 @@ You MUST call each of these tools at least once before finishing:
 - web_intel: check for public announcements relevant to the claim (e.g. a bank change)
 - invoice_archive: field-by-field comparison against this supplier's prior invoices
 
+If any account involved is a BANKGIRO number (NNN-NNNN or NNNN-NNNN, often
+prefixed "BG"), also call bankgirot on it: it validates the check digit and can
+confirm the registered owner. Skip it for IBANs — it cannot see those.
+
 You may call several tools in parallel. When you have finished gathering, report
 the evidence bundle: one entry per finding, each tagged as supporting "fraud",
 "legit" or "neutral" with your confidence. Every finding must be a fact you

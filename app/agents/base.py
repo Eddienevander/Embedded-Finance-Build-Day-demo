@@ -76,6 +76,14 @@ def summarize_finding(tool: str, raw: dict) -> str:
         flags = ", ".join(raw.get("flags", [])) or "no flags"
         return (f"Owner: {raw.get('owner_name')} ({raw.get('owner_type')}), "
                 f"age {raw.get('account_age_days')} days, {flags}")
+    if tool == "bankgirot":
+        if not raw.get("is_bankgiro"):
+            return "Not a bankgiro number — Bankgirot cannot verify it"
+        if not raw.get("check_digit_valid"):
+            return "INVALID check digit — never issued by Bankgirot"
+        owner = raw.get("owner_name")
+        return (f"Valid bankgiro; owner: {owner} ({raw.get('owner_orgnr')})" if owner
+                else "Valid check digit; no owner found in the public search")
     if tool == "web_intel":
         return raw.get("summary", "web intel result")
     if tool == "invoice_archive":

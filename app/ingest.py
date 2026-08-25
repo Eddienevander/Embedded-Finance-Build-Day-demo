@@ -1,5 +1,6 @@
 """Invoice intake + change-of-state claim detection. Deterministic — no LLM."""
 
+import re
 import uuid
 
 from app.bus import bus
@@ -63,10 +64,39 @@ def detect_claims(
     return claims
 
 
+_ORGNR_RE = re.compile(r"^\d{6}-\d{4}$")
+
+
+def placeholder_reason(invoice: Invoice) -> str | None:
+    """Why an invoice is a placeholder/test record rather than a real one.
+    Live feeds (the Zwapgrid sandbox, for one) contain seed rows like
+    amount 0.00, orgnr "1", account "UNKNOWN" — running four LLM agents on
+    those wastes a minute of demo time and clutters the case queue. Returns
+    None for anything worth verifying."""
+    if invoice.amount_sek <= 0:
+        return f"non-positive amount ({invoice.amount_sek:g} SEK)"
+    if not _ORGNR_RE.match(invoice.supplier_orgnr.strip()):
+        return f"malformed orgnr ({invoice.supplier_orgnr!r})"
+    if invoice.bank_account.strip().upper() in ("", "UNKNOWN"):
+        return "no bank account on the invoice"
+    return None
+
+
 async def process_invoice(invoice: Invoice, db: Database) -> list[VerificationCase]:
-    """Intake path: detect claims, then auto-approve or spawn one verification
-    case per claim. Returns the created cases (empty on auto-approve)."""
+    """Intake path: quarantine placeholders, then detect claims and either
+    auto-approve or spawn one verification case per claim. Returns the created
+    cases (empty on auto-approve or quarantine)."""
     from app.orchestrator import start_case  # late import to avoid a cycle
+
+    reason = placeholder_reason(invoice)
+    if reason is not None:
+        db.insert_invoice(invoice, status="invalid")
+        await bus.emit(invoice.id, "system", "done",
+                       f"Invoice {invoice.id} from {invoice.supplier_name!r} quarantined "
+                       f"as a placeholder: {reason}. Not sent to verification.",
+                       payload={"invoice": invoice.model_dump(mode="json"),
+                                "quarantined": True})
+        return []
 
     baseline = db.get_baseline(invoice.supplier_orgnr)
     priors = db.get_invoices_for(invoice.supplier_orgnr)

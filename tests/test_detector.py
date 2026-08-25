@@ -14,7 +14,7 @@ def make_invoice(**overrides) -> Invoice:
         supplier_orgnr="556677-8899",
         supplier_name="Nordisk Ställning AB",
         amount_sek=180_000.0,
-        bank_account="BG 123-4567",
+        bank_account="BG 123-4566",
         reference="F2026-1001",
         issued_date=TODAY,
         due_date=TODAY + timedelta(days=30),
@@ -28,7 +28,7 @@ def make_baseline(**overrides) -> SupplierBaseline:
     values = dict(
         orgnr="556677-8899",
         name="Nordisk Ställning AB",
-        known_accounts=["BG 123-4567"],
+        known_accounts=["BG 123-4566"],
         payment_count=30,
         avg_amount_sek=180_000.0,
         typical_terms_days=30,
@@ -50,12 +50,12 @@ def test_new_supplier_when_no_baseline():
 
 
 def test_bank_account_changed_uses_most_used_known_account_as_old():
-    baseline = make_baseline(known_accounts=["BG 123-4567", "BG 999-0000"])
+    baseline = make_baseline(known_accounts=["BG 123-4566", "BG 999-0000"])
     invoice = make_invoice(bank_account="SE45 5000 0000 0583 9825 7466")
     claims = detect_claims(invoice, baseline, [])
     assert [c.type for c in claims] == [ClaimType.BANK_ACCOUNT_CHANGED]
     old, new = claims[0].detected_fields["bank_account"]
-    assert old == "BG 123-4567"
+    assert old == "BG 123-4566"
     assert new == "SE45 5000 0000 0583 9825 7466"
 
 

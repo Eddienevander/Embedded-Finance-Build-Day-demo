@@ -22,8 +22,8 @@ def _invoice(inv_id: str, account: str) -> Invoice:
 
 def test_archive_hides_under_review_and_blocked_invoices(tmp_path):
     db = Database(str(tmp_path / "t.db"))
-    db.insert_invoice(_invoice("INV-PAID", "BG 123-4567"), status="paid")
-    db.insert_invoice(_invoice("INV-AUTO", "BG 123-4567"), status="auto_approved")
+    db.insert_invoice(_invoice("INV-PAID", "BG 123-4566"), status="paid")
+    db.insert_invoice(_invoice("INV-AUTO", "BG 123-4566"), status="auto_approved")
     db.insert_invoice(_invoice("INV-SUSPECT", "SE45 FAKE"), status="under_review")
     db.insert_invoice(_invoice("INV-BLOCKED", "SE45 FAKE"), status="blocked")
 
@@ -36,8 +36,8 @@ def test_archive_hides_under_review_and_blocked_invoices(tmp_path):
 
 def test_archive_still_excludes_the_invoice_under_investigation(tmp_path):
     db = Database(str(tmp_path / "t.db"))
-    db.insert_invoice(_invoice("INV-PAID", "BG 123-4567"), status="paid")
-    db.insert_invoice(_invoice("INV-CURRENT", "BG 123-4567"), status="paid")
+    db.insert_invoice(_invoice("INV-PAID", "BG 123-4566"), status="paid")
+    db.insert_invoice(_invoice("INV-CURRENT", "BG 123-4566"), status="paid")
 
     result = asyncio.run(InvoiceArchiveTool(db).lookup(orgnr=ORGNR, invoice_id="INV-CURRENT"))
 
