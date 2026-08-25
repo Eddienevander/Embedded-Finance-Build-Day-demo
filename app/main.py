@@ -90,6 +90,29 @@ async def list_invoices(include_paid: bool = False) -> list[dict]:
     return [{**row, "case_ids": cases_by_invoice.get(row["id"], [])} for row in rows]
 
 
+@app.post("/invoices/{invoice_id}/process")
+async def process_fetched_invoice(invoice_id: str) -> dict:
+    """Run the intake pipeline (quarantine check, claim detection, and the
+    agent pipeline if a claim is found) for exactly one invoice, on demand.
+    Only valid for an invoice still sitting in 'fetched' status — once
+    processed it moves on to invalid/auto_approved/under_review, and this
+    won't re-run it (avoids spawning a duplicate case on a repeat click)."""
+    db = get_db()
+    status = db.get_invoice_status(invoice_id)
+    if status is None:
+        raise HTTPException(404, f"no such invoice: {invoice_id}")
+    if status != "fetched":
+        raise HTTPException(409, f"invoice {invoice_id} is already {status!r} — nothing to process")
+
+    invoice = db.get_invoice(invoice_id)
+    cases = await process_invoice(invoice, db)
+    return {
+        "invoice_id": invoice.id,
+        "auto_approved": not cases,
+        "case_ids": [c.id for c in cases],
+    }
+
+
 @app.post("/demo/scenario/{name}")
 async def run_scenario(name: str) -> dict:
     if name not in SCENARIOS:
@@ -108,10 +131,12 @@ async def run_scenario(name: str) -> dict:
 
 @app.post("/demo/zwapgrid-sync")
 async def sync_zwapgrid() -> dict:
-    """Pull real invoices from the connected Zwapgrid consent and run any
-    we haven't seen yet through the same intake path as /invoices. Lets the
-    real Fortnox/Xero-connected sandbox data feed real cases, instead of only
-    the scripted fictional scenarios."""
+    """Pull invoices from the connected Zwapgrid consent and stage any we
+    haven't seen yet as 'fetched' — visible in the inbox, but NOT run through
+    the intake pipeline (quarantine check, claims, agents) here. A live
+    sandbox can hand back dozens of rows in one call; auto-running all of
+    them would mean an unpredictable number of concurrent agent pipelines.
+    Trigger verification per invoice on demand via POST /invoices/{id}/process."""
     db = get_db()
     await bus.emit("zwapgrid-sync", "system", "thinking",
                    "Zwapgrid: fetching supplier invoices from the connected consent…")
@@ -121,27 +146,23 @@ async def sync_zwapgrid() -> dict:
         await bus.emit("zwapgrid-sync", "system", "error", f"Zwapgrid sync failed: {e}")
         raise HTTPException(400, str(e))
 
-    results = []
+    new_ids = []
     for invoice in invoices:
         if db.invoice_exists(invoice.id):
             continue
-        cases = await process_invoice(invoice, db)
-        results.append({
-            "invoice_id": invoice.id,
-            "supplier_name": invoice.supplier_name,
-            "auto_approved": not cases,
-            "case_ids": [c.id for c in cases],
-        })
+        db.insert_invoice(invoice, status="fetched")
+        new_ids.append(invoice.id)
 
     summary = {
         "fetched": len(invoices),
-        "new": len(results),
-        "skipped_already_seen": len(invoices) - len(results),
-        "invoices": results,
+        "new": len(new_ids),
+        "skipped_already_seen": len(invoices) - len(new_ids),
+        "invoice_ids": new_ids,
     }
     await bus.emit("zwapgrid-sync", "system", "done",
                    f"Zwapgrid: {summary['fetched']} invoice(s) fetched, "
-                   f"{summary['new']} new, {summary['skipped_already_seen']} already seen.")
+                   f"{summary['new']} new (staged for review — select one and run verification), "
+                   f"{summary['skipped_already_seen']} already seen.")
     return summary
 
 
