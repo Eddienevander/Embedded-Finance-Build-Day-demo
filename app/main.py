@@ -3,6 +3,7 @@ and the /ws heartbeat stream that drives the dashboard."""
 
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -26,6 +27,7 @@ from app.orchestrator import (
 )
 from app.replay import available_recordings, has_recording, replay_scenario
 from app.seed import SCENARIOS, make_scenario_invoices
+from app.tools.openpayments_real import OpenPaymentsError, OpenPaymentsPISClient, SETTLED_STATUSES
 from app.tools.zwapgrid_real import ZwapgridRealTool
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -202,6 +204,83 @@ async def record_decision(case_id: str, body: DecisionBody) -> dict:
                    f"Human decision on {case.id}: {body.decision.upper()}",
                    payload={"case": case.model_dump(mode="json")})
     return case.model_dump(mode="json")
+
+
+@app.post("/cases/{case_id}/pay")
+async def pay_case(case_id: str) -> dict:
+    """Execute the case's payment via Open Payments Europe's PIS (sandbox
+    decoupled flow — see app/tools/openpayments_real.py), only once a human
+    has approved. On settlement, marks the invoice paid in our own DB —
+    Zwapgrid has no write-back for this (verified: its Accounting API is
+    GET/POST-only, no PATCH on supplier invoices)."""
+    case = CASES.get(case_id)
+    if case is None:
+        raise HTTPException(404, f"no such case: {case_id}")
+    if case.human_decision != "approve":
+        raise HTTPException(409, "case has not been approved — approve it before paying")
+    if case.payment_status in SETTLED_STATUSES:
+        return case.model_dump(mode="json")  # already paid — no-op, not an error
+
+    db = get_db()
+    invoice = db.get_invoice(case.claim.invoice_id)
+    if invoice is None:
+        raise HTTPException(409, "the invoice for this case is not on file "
+                                 "(replayed case?) — can't execute payment")
+
+    try:
+        result = await OpenPaymentsPISClient().pay_invoice(invoice)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    except OpenPaymentsError as e:
+        case.payment_status = "failed"
+        db.save_case(case)
+        await bus.emit(case.id, "system", "error",
+                       f"Payment failed for {case.id}: {e}",
+                       payload={"case": case.model_dump(mode="json")})
+        return case.model_dump(mode="json")
+
+    case.payment_id = result["payment_id"]
+    case.payment_status = result["status"]
+    db.save_case(case)
+    db.set_invoice_status(invoice.id, "paid")
+    db.add_payment(invoice.supplier_orgnr, invoice.id, invoice.amount_sek, invoice.bank_account, date.today())
+    await bus.emit(case.id, "system", "done",
+                   f"Payment executed for {case.id} via Open Payments ({result['status']})",
+                   payload={"case": case.model_dump(mode="json")})
+    return case.model_dump(mode="json")
+
+
+@app.get("/demo/payments")
+async def list_executed_payments() -> dict:
+    """Every payment we've executed, cross-checked live against Open
+    Payments' own status endpoint — proof it actually exists there, not just
+    a status string cached in our local case record."""
+    db = get_db()
+    client = OpenPaymentsPISClient()
+    results = []
+    for case in CASES.values():
+        if not case.payment_id:
+            continue
+        invoice = db.get_invoice(case.claim.invoice_id)
+        try:
+            live_status = await client.get_payment_status(case.payment_id)
+            error = None
+        except Exception as e:
+            live_status = None
+            error = f"{type(e).__name__}: {e}"
+        results.append({
+            "case_id": case.id,
+            "payment_id": case.payment_id,
+            "recorded_status": case.payment_status,
+            "live_status": live_status,
+            "error": error,
+            "invoice_id": case.claim.invoice_id,
+            "supplier_name": invoice.supplier_name if invoice else None,
+            "amount_sek": invoice.amount_sek if invoice else None,
+            "bank_account": invoice.bank_account if invoice else None,
+        })
+    results.sort(key=lambda r: r["case_id"], reverse=True)
+    return {"payments": results}
 
 
 @app.post("/cases/{case_id}/rerun")

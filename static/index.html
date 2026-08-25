@@ -30,7 +30,43 @@
     color: var(--muted); cursor: pointer;
   }
   #btn-real-integrations.on { color: var(--green); border-color: var(--green); }
+  #btn-payments {
+    font-size: 13px; font-weight: 600; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid var(--border); background: var(--panel2);
+    color: var(--text); cursor: pointer;
+  }
+  #btn-payments:hover { border-color: var(--teal); }
   header .conn { font-size: 14px; color: var(--muted); }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.hidden { display: none; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    width: min(760px, 92vw); max-height: 80vh; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+  }
+  .modal-head h2 { font-size: 16px; }
+  .modal-head button {
+    padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); cursor: pointer; font-size: 13px;
+  }
+  .modal-body { overflow-y: auto; padding: 10px 18px 18px; }
+  .pay-row {
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; align-items: center;
+  }
+  .pay-row.head { color: var(--muted); text-transform: uppercase; font-size: 11.5px; letter-spacing: .5px; }
+  .pay-row .mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+  .pay-status { font-weight: 700; }
+  .pay-status.match { color: var(--green); }
+  .pay-status.mismatch { color: var(--amber); }
+  .pay-status.err { color: var(--red); }
   header .conn.ok::before { content: "● "; color: var(--green); }
   header .conn.down::before { content: "● "; color: var(--red); }
 
@@ -206,6 +242,11 @@
                border-radius: 8px; border: 1px solid var(--border); background: var(--panel2);
                color: var(--text); cursor: pointer; }
   #btn-rerun:hover { border-color: var(--blue); }
+  #btn-pay { width: 100%; margin-top: 8px; padding: 11px; font-size: 15px; font-weight: 700;
+             border-radius: 8px; border: 1px solid var(--teal); background: #0f2b28;
+             color: var(--teal); cursor: pointer; }
+  #btn-pay:hover:not(:disabled) { background: #123a35; }
+  #btn-pay:disabled { opacity: .7; cursor: default; }
   .hbtns button:disabled { opacity: .45; cursor: default; }
   .human-note { font-size: 14px; color: var(--muted); }
   .empty { color: var(--muted); font-size: 14px; padding: 0 14px; }
@@ -216,8 +257,22 @@
   <h1>Trust Layer</h1>
   <span class="sub">adversarial multi-agent verification · Bergström Bygg AB</span>
   <button id="btn-real-integrations" onclick="toggleRealIntegrations()" title="Swap payment_history (and future adapters) between seeded mock data and live APIs — Zwapgrid today, Open Payments later">○ Seeded data</button>
+  <button id="btn-payments" onclick="openPaymentsModal()" title="Payments executed via Open Payments, cross-checked live against their status API">💳 Payments</button>
   <span id="conn" class="conn down">connecting…</span>
 </header>
+
+<div id="payments-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closePaymentsModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Executed payments</h2>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="btn-payments-refresh" onclick="loadPaymentsModal()">↻ Refresh</button>
+        <button onclick="closePaymentsModal()">✕</button>
+      </div>
+    </div>
+    <div id="payments-body" class="modal-body"><div class="empty">Loading…</div></div>
+  </div>
+</div>
 <main>
   <!-- left -->
   <section class="panel">
@@ -388,6 +443,50 @@ async function loadRealIntegrations() {
   const body = await (await fetch("/demo/real-integrations")).json();
   renderRealIntegrations(body.real_integrations);
 }
+
+function openPaymentsModal() {
+  $("#payments-modal").classList.remove("hidden");
+  loadPaymentsModal();
+}
+
+function closePaymentsModal() {
+  $("#payments-modal").classList.add("hidden");
+}
+
+async function loadPaymentsModal() {
+  const body = $("#payments-body");
+  body.innerHTML = '<div class="empty">Checking Open Payments…</div>';
+  let data;
+  try {
+    data = await (await fetch("/demo/payments")).json();
+  } catch (e) {
+    body.innerHTML = `<div class="empty">Failed to load: ${esc(String(e))}</div>`;
+    return;
+  }
+  const rows = data.payments || [];
+  if (!rows.length) {
+    body.innerHTML = '<div class="empty">No payments executed yet — approve a case, then click EXECUTE PAYMENT.</div>';
+    return;
+  }
+  const head = `<div class="pay-row head">
+    <div>Supplier / Case</div><div>Amount</div><div>Payment ID</div><div>Recorded</div><div>Live (Open Payments)</div>
+  </div>`;
+  const body_rows = rows.map(r => {
+    const statusClass = r.error ? "err" : (r.live_status === r.recorded_status ? "match" : "mismatch");
+    const live = r.error ? `ERROR: ${esc(r.error)}` : esc(r.live_status || "?");
+    return `<div class="pay-row">
+      <div>${esc(r.supplier_name || r.invoice_id)}<div class="mono">${esc(r.case_id)}</div></div>
+      <div>${r.amount_sek != null ? r.amount_sek.toLocaleString() + " SEK" : "?"}</div>
+      <div class="mono">${esc(r.payment_id)}</div>
+      <div>${esc(r.recorded_status || "?")}</div>
+      <div class="pay-status ${statusClass}">${live}</div>
+    </div>`;
+  }).join("");
+  body.innerHTML = head + body_rows;
+}
+window.openPaymentsModal = openPaymentsModal;
+window.closePaymentsModal = closePaymentsModal;
+window.loadPaymentsModal = loadPaymentsModal;
 
 async function refreshCases() {
   const list = await (await fetch("/cases")).json();
@@ -720,12 +819,20 @@ function renderVerdict(c) {
   }
 
   const decided = !!c.human_decision;
+  const paid = !!c.payment_status && c.payment_status !== "failed";
+  const payHtml = c.human_decision === "approve" ? `
+    <button id="btn-pay" ${paid ? "disabled" : ""} onclick="payCase('${c.id}')">
+      ${paid ? `✓ PAID via Open Payments (${esc(c.payment_status)})` : "⚡ EXECUTE PAYMENT (Open Payments)"}
+    </button>
+    ${c.payment_status === "failed" ? '<div class="human-note" style="color:var(--red)">Payment failed — click to retry.</div>' : ""}
+  ` : "";
   const humanHtml = c.verdict || c.status === "error" ? `
     <div class="hbtns">
       <button id="btn-approve" ${decided ? "disabled" : ""} onclick="decide('${c.id}','approve')">APPROVE PAYMENT</button>
       <button id="btn-block" ${decided ? "disabled" : ""} onclick="decide('${c.id}','block')">BLOCK PAYMENT</button>
     </div>
     ${decided ? `<div class="human-note">Human decision recorded: <b>${esc(c.human_decision).toUpperCase()}</b></div>` : ""}
+    ${payHtml}
     <button id="btn-rerun" onclick="rerunCase('${c.id}')">↻ RE-RUN THIS CASE</button>` : "";
 
   p.innerHTML = `
@@ -765,6 +872,22 @@ async function rerunCase(caseId) {
   renderInbox();
   renderDetail();
 }
+async function payCase(caseId) {
+  const btn = document.getElementById("btn-pay");
+  if (btn) { btn.disabled = true; btn.textContent = "Paying via Open Payments…"; }
+  const res = await fetch(`/cases/${caseId}/pay`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "payment failed" }));
+    alert(err.detail || "payment failed");
+    if (selectedCase === caseId) renderDetail();
+    return;
+  }
+  const c = await res.json();
+  cases.set(c.id, c);
+  refreshInvoicesSoon();
+  if (selectedCase === c.id) renderDetail();
+}
+window.payCase = payCase;
 window.rerunCase = rerunCase; window.setMode = setMode;
 
 // ---------- websocket ----------
