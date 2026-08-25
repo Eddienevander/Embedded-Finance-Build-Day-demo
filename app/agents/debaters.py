@@ -4,7 +4,7 @@ per debater (opening + one rebuttal) — demo time budget."""
 import json
 from typing import Literal
 
-from app.agents.base import BaseAgent, truncate
+from app.agents.base import STYLE_RULES, BaseAgent, truncate
 from app.models import Argument, Claim, Evidence
 from app.schemas import ArgumentOut
 
@@ -19,9 +19,10 @@ STANCE_BRIEF = {
 SYSTEM_TEMPLATE = """\
 You are one side of an adversarial verification debate about a flagged B2B invoice.
 {brief}
-Ground every point in the evidence bundle you are given — cite concrete findings.
-Give 3-5 points plus the single strongest argument you have.
-"""
+Ground every point in the evidence bundle you are given: cite concrete findings.
+Give 3-5 points plus the single strongest argument you have. Each point is ONE
+short sentence a non-expert follows at a glance.
+""" + STYLE_RULES
 
 
 class Debater(BaseAgent):

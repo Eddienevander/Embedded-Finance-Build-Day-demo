@@ -150,10 +150,11 @@ class Database:
         params.append(limit)
         return [dict(r) for r in self._exec(sql, tuple(params)).fetchall()]
 
-    def list_invoices(self, exclude_statuses: tuple[str, ...] = ("paid",),
+    def list_invoices(self, exclude_statuses: tuple[str, ...] = ("historical",),
                       limit: int = 200) -> list[dict]:
-        """The operational inbox: newest first, seeded history ('paid') excluded
-        by default so real traffic isn't drowned by 100+ backfill rows."""
+        """The operational list: newest first, seeded backfill ('historical')
+        excluded by default so real traffic isn't drowned by 100+ rows. Real
+        payouts keep status 'paid' and stay visible."""
         sql = "SELECT * FROM invoices"
         params: list = []
         if exclude_statuses:

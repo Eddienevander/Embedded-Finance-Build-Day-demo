@@ -1,6 +1,6 @@
 """Investigator: gathers evidence via the tool registry. Never concludes."""
 
-from app.agents.base import BaseAgent, truncate
+from app.agents.base import STYLE_RULES, BaseAgent, truncate
 from app.models import Claim, Evidence, Invoice, SupplierBaseline
 from app.schemas import EvidenceBundle, clamp01
 from app.tools.base import ToolRegistry
@@ -25,8 +25,11 @@ confirm the registered owner. Skip it for IBANs — it cannot see those.
 You may call several tools in parallel. When you have finished gathering, report
 the evidence bundle: one entry per finding, each tagged as supporting "fraud",
 "legit" or "neutral" with your confidence. Every finding must be a fact you
-observed in a tool result, not an inference.
-"""
+observed in a tool result, not an inference. Each finding is ONE short plain
+sentence, at most 18 words, phrased as a business fact an accounts-payable
+clerk can act on. Name sources in plain words (the company register, our
+payment history, the supplier's website), never by tool name.
+""" + STYLE_RULES
 
 
 class Investigator(BaseAgent):
@@ -44,7 +47,7 @@ class Investigator(BaseAgent):
             f"CLAIM:\n{claim.model_dump_json(indent=2)}\n\n"
             f"INCOMING INVOICE:\n{invoice.model_dump_json(indent=2)}\n\n"
             f"SUPPLIER BASELINE (from our records):\n"
-            f"{baseline.model_dump_json(indent=2) if baseline else 'none — supplier never seen before'}\n\n"
+            f"{baseline.model_dump_json(indent=2) if baseline else 'none, supplier never seen before'}\n\n"
             "Gather evidence about this claim, then report the evidence bundle."
         )
         try:

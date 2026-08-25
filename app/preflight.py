@@ -31,11 +31,11 @@ async def check() -> tuple[bool, str]:
 def main() -> None:
     ok, detail = asyncio.run(check())
     if ok:
-        print(f"  ✓ pre-flight OK — {detail}")
+        print(f"  ✓ pre-flight OK: {detail}")
         sys.exit(0)
 
     recordings = available_recordings()
-    print(f"  ✗ PRE-FLIGHT FAILED — {detail}", file=sys.stderr)
+    print(f"  ✗ PRE-FLIGHT FAILED: {detail}", file=sys.stderr)
     print("    Live agents will not run. Fix: export ANTHROPIC_API_KEY=sk-ant-…", file=sys.stderr)
     if recordings:
         print(f"    Recorded replays ARE available ({', '.join(recordings)}).", file=sys.stderr)

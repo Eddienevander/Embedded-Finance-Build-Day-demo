@@ -3,26 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trust Layer — adversarial invoice verification</title>
+<title>Trust Layer: adversarial invoice verification</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
+  /* Vesence-inspired system: warm off-white ground, white cards with hairlines,
+     editorial serif display moments, muted natural agent hues. Token NAMES are
+     unchanged so every JS-rendered inline var() keeps working. */
   :root {
-    --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --border: #2d3644;
-    --text: #e6edf3; --muted: #9aa7b4; --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
-    --blue: #4d9fff; --amber: #ffb020; --violet: #b57bff; --teal: #2dd4bf;
-    --green: #34d399; --red: #f87171; --gray: #5b6572;
+    --bg: #F7F5F1; --panel: #FFFFFF; --panel2: #F4F1EC; --border: #E6E2DA;
+    --text: #22242A; --muted: #6E6A63;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --serif: "Playfair Display", Georgia, "Times New Roman", serif;
+    --blue: #5E86A8; --amber: #A8823C; --violet: #8B7A9B; --teal: #5F8F89;
+    --green: #6E9068; --red: #A84432; --gray: #A9A49B;
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
   body {
     background: var(--bg); color: var(--text);
-    font: 15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 15px/1.5 "Instrument Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
     display: grid; grid-template-rows: auto 1fr; overflow: hidden;
   }
   header {
-    display: flex; align-items: baseline; gap: 14px;
-    padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--panel);
+    display: flex; align-items: baseline; gap: 16px;
+    padding: 15px 22px; border-bottom: 1px solid var(--border); background: var(--panel);
   }
-  header h1 { font-size: 20px; letter-spacing: .3px; }
+  header h1 { font-family: var(--serif); font-size: 23px; font-weight: 700; letter-spacing: .01em; }
   header .sub { color: var(--muted); font-size: 14px; }
   #btn-real-integrations {
     margin-left: auto; font-size: 13px; font-weight: 600; padding: 6px 12px;
@@ -75,59 +81,94 @@
     display: grid; grid-template-columns: 330px 1fr 420px; gap: 12px;
     padding: 12px; min-height: 0;
   }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+           box-shadow: 0 1px 2px rgba(34,36,42,.04);
            display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .panel > h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px;
-                color: var(--muted); padding: 12px 14px 8px; }
+  .panel > h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .16em;
+                color: var(--muted); padding: 16px 18px 10px; }
 
   /* ---- left: scenarios + case queue ---- */
   .scenarios { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 12px; }
   .scenarios button {
-    padding: 9px 8px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel2); color: var(--text); font-size: 14px; cursor: pointer;
+    padding: 9px 12px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 14px; cursor: pointer;
   }
   .scenarios button:hover:not(:disabled) { border-color: var(--blue); }
   .scenarios button:disabled { opacity: .4; cursor: default; }
   .modes { display: flex; gap: 8px; padding: 0 14px 10px; }
   .modes button {
-    flex: 1; padding: 7px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel2); color: var(--muted); font-size: 13.5px; cursor: pointer;
+    flex: 1; padding: 7px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--muted); font-size: 13.5px; cursor: pointer;
   }
-  .modes button.active { color: var(--text); border-color: var(--blue); background: #16283d; }
+  .modes button.active { color: var(--text); border-color: var(--blue); background: #EDF1F5; }
   .scenarios button.headline { grid-column: 1 / -1; border-color: var(--amber); font-weight: 600; }
   .badge { font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 6px; }
-  .badge.block { background: #3d1d1d; color: var(--red); }
-  .badge.approve { background: #14322a; color: var(--green); }
-  .badge.verify_manually { background: #3a2d12; color: var(--amber); }
-  .badge.auto { background: #14322a; color: var(--green); }
+  .badge.block { background: #F3E2DC; color: var(--red); }
+  .badge.approve { background: #E7EDE2; color: var(--green); }
+  .badge.verify_manually { background: #F2EAD6; color: var(--amber); }
+  .badge.auto { background: #E7EDE2; color: var(--green); }
 
   /* ---- left: invoice inbox + demo drawer ---- */
   #inbox { overflow-y: auto; flex: 1; min-height: 0; padding: 4px 14px 12px;
            display: flex; flex-direction: column; gap: 8px; }
   .inv-row {
-    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
-    background: var(--panel2); cursor: pointer; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px;
+    background: var(--panel); cursor: pointer; font-size: 14px;
   }
+  .inv-row.selected { background: #EDF1F5; }
   .inv-row:hover { border-color: var(--gray); }
   .inv-row.selected { border-color: var(--blue); }
   .inv-row .row1 { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
   .inv-row .sup { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .inv-row .meta { margin-top: 4px; color: var(--muted); font-size: 13.5px;
-                   display: flex; justify-content: space-between; gap: 8px; }
+                   display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .inv-row .meta > span:first-child { white-space: nowrap; }
   .chip { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
           white-space: nowrap; flex: none; }
-  .chip.auto_approved, .chip.approved { background: #14322a; color: var(--green); }
-  .chip.under_review { background: #16283d; color: var(--blue); }
-  .chip.blocked { background: #3d1d1d; color: var(--red); }
-  .chip.invalid, .chip.received { background: #262c36; color: var(--muted); }
-  .chip.fetched { background: #16283d; color: var(--amber); }
+  .chip.auto_approved, .chip.approved, .chip.paid { background: #E7EDE2; color: var(--green); }
+  .chip.under_review { background: #EDF1F5; color: var(--blue); }
+  .chip.blocked { background: #F3E2DC; color: var(--red); }
+  .chip.invalid, .chip.received { background: #ECE9E3; color: var(--muted); }
+  .chip.fetched { background: #EDF1F5; color: var(--amber); }
   .drawer { border-top: 1px solid var(--border); margin-top: auto; flex: none; }
   .drawer summary {
     padding: 10px 14px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
     color: var(--muted); cursor: pointer; user-select: none;
   }
   .drawer summary:hover { color: var(--text); }
-  .drawer[open] { background: #10151d; }
+  .drawer[open] { background: #F6F4F0; }
+
+  /* ---- center: agent map ---- */
+  #mapwrap { margin: 2px 16px 0; padding: 8px 8px 0; background: var(--panel2);
+             border-radius: 14px; }
+  #agentmap { width: 100%; height: auto; display: block; }
+  #agentmap .lane { fill: none; stroke: var(--border); stroke-width: 2; }
+  #agentmap .mnode circle.core { fill: var(--panel); stroke: var(--gray); stroke-width: 2.5; }
+  #agentmap .mnode text { fill: var(--muted); font-family: var(--mono); font-size: 12px;
+                          letter-spacing: .14em; text-anchor: middle; }
+  #agentmap .mnode .glyph { font-size: 17px; letter-spacing: 0; fill: var(--muted); }
+  #agentmap .mnode circle.halo { fill: none; stroke-width: 2; opacity: 0;
+                                 transform-box: fill-box; transform-origin: center; }
+  #agentmap .mnode.active circle.halo { opacity: 1; animation: halo 1.3s ease-out infinite; }
+  @keyframes halo { 0% { transform: scale(1); opacity: .8; } 100% { transform: scale(1.9); opacity: 0; } }
+  #agentmap .mnode.active circle.core, #agentmap .mnode.done circle.core { stroke-width: 3; }
+  #agentmap .mnode.active text, #agentmap .mnode.done text { fill: var(--text); }
+  #agentmap .mnode.error circle.core { stroke: var(--red) !important; }
+  #agentmap .c-detector { --nc: var(--teal); } #agentmap .c-investigator { --nc: var(--blue); }
+  #agentmap .c-skeptic { --nc: var(--red); }   #agentmap .c-advocate { --nc: var(--green); }
+  #agentmap .c-arbiter { --nc: var(--violet); } #agentmap .c-verdict { --nc: var(--green); }
+  #agentmap .mnode.active circle.core, #agentmap .mnode.done circle.core,
+  #agentmap .mnode.active circle.halo { stroke: var(--nc); }
+  #agentmap .mnode.done .glyph { fill: var(--nc); }
+  #agentmap .lane.lit { stroke: var(--nc, var(--blue)); opacity: .55; }
+  #mapverdict { font-family: var(--display, inherit); font-weight: 800; font-size: 12px;
+                text-anchor: middle; letter-spacing: .02em; }
+  #mapstatus { padding: 2px 14px 8px; font-family: var(--mono); font-size: 13.5px;
+               color: var(--muted); min-height: 22px; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) {
+    #agentmap .mnode.active circle.halo { animation: none; opacity: .8; }
+  }
 
   /* ---- center: pipeline status ---- */
   .center-head { display: flex; align-items: center; padding: 12px 14px 8px; }
@@ -139,14 +180,14 @@
     cursor: pointer;
   }
   #btn-detail.on { color: var(--text); border-color: var(--blue); }
-  #pipeline { padding: 4px 14px 12px; display: flex; flex-direction: column; gap: 10px;
+  #pipeline { padding: 4px 14px 12px; display: flex; flex-direction: column; gap: 8px;
               overflow-y: auto; flex: 1; }
   .detail-on #pipeline { flex: none; max-height: 32%; }
   #detail-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
   #detail-view[hidden] { display: none; }
   .pl-line {
     display: flex; align-items: center; gap: 14px;
-    background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
     padding: 14px 16px; cursor: default;
   }
   .pl-line.click { cursor: pointer; }
@@ -182,21 +223,21 @@
                    overflow-wrap: anywhere; min-height: 38px; }
   .agent .live {
     font-family: var(--mono); font-size: 13px; color: var(--text);
-    background: #10151d; border-radius: 6px; padding: 6px 8px;
+    background: #F6F4F0; border-radius: 6px; padding: 6px 8px;
     max-height: 130px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere;
     display: none;
   }
   .agent .live.on { display: block; }
   #evidence-live { list-style: none; display: none; flex-direction: column; gap: 4px;
-                   max-height: 150px; overflow-y: auto; font-size: 13.5px; }
+                   max-height: 150px; overflow-y: auto; font-size: 14px; line-height: 1.45; }
   #evidence-live.on { display: flex; }
-  #evidence-live li { padding: 4px 6px; background: #10151d; border-radius: 6px;
+  #evidence-live li { padding: 4px 6px; background: #F6F4F0; border-radius: 6px;
                       border-left: 3px solid var(--gray); overflow-wrap: anywhere; }
   #monitor-case { padding: 6px 14px 4px; font-family: var(--mono); font-size: 14px; color: var(--muted); }
   #log-wrap { margin: 10px 14px 14px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   #log-wrap h3 { font-size: 12.5px; color: var(--muted); text-transform: uppercase;
                  letter-spacing: 1px; padding-bottom: 6px; }
-  #log { flex: 1; overflow-y: auto; background: #0a0e14; border: 1px solid var(--border);
+  #log { flex: 1; overflow-y: auto; background: #F6F4F0; border: 1px solid var(--border);
          border-radius: 8px; padding: 8px 10px; font-family: var(--mono); font-size: 14px;
          line-height: 1.5; }
   #log .l { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -215,49 +256,69 @@
   .vc-claim { background: var(--panel2); border: 1px solid var(--border);
               border-radius: 8px; padding: 10px 12px; font-size: 14.5px; }
   .ev { border-left: 3px solid var(--gray); background: var(--panel2); border-radius: 6px;
-        padding: 7px 10px; margin-bottom: 6px; font-size: 14px; }
+        padding: 8px 11px; margin-bottom: 6px; font-size: 15px; line-height: 1.5; }
   .ev.fraud { border-left-color: var(--red); }
   .ev.legit { border-left-color: var(--green); }
   .ev .tag { font-family: var(--mono); font-size: 12px; color: var(--muted); }
   .ev .tag .sup-fraud { color: var(--red); } .ev .tag .sup-legit { color: var(--green); }
-  .debate { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .arg { border-radius: 8px; padding: 9px 11px; font-size: 14px; background: var(--panel2); }
-  .arg.skeptic { border: 1px solid #5c2e2e; } .arg.advocate { border: 1px solid #24523f; }
+  /* stacked, not side-by-side: two columns in a 420px panel squeeze bullets
+     into one-word lines */
+  .debate { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .pts { list-style: none; display: flex; flex-direction: column; gap: 7px; margin-top: 2px; }
+  .pts li { padding-left: 14px; position: relative; }
+  .pts li::before { content: "·"; position: absolute; left: 2px; color: var(--muted);
+                    font-weight: 700; }
+  .pts li.lead { font-weight: 600; }
+  .morelink { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600;
+              color: var(--blue); cursor: pointer; letter-spacing: .02em; }
+  .morelink:hover { text-decoration: underline; }
+  .tm-section { margin-bottom: 16px; }
+  .tm-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .14em;
+                   color: var(--muted); margin-bottom: 8px; }
+  .tm-section p, .tm-section li { font-size: 15.5px; line-height: 1.6; }
+  .tm-section ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .tm-section li { padding-left: 16px; position: relative; }
+  .tm-section li::before { content: "·"; position: absolute; left: 2px; color: var(--muted);
+                           font-weight: 700; }
+  .tm-section li.lead { font-weight: 600; }
+  .arg { border-radius: 8px; padding: 10px 12px; font-size: 15px; line-height: 1.5; background: var(--panel2); }
+  .arg.skeptic { border: 1px solid #E3C6BD; } .arg.advocate { border: 1px solid #CBD9C5; }
   .arg h4 { font-size: 13px; margin-bottom: 5px; }
   .arg.skeptic h4 { color: var(--red); } .arg.advocate h4 { color: var(--green); }
   .verdict-box { border-radius: 10px; padding: 12px 14px; background: var(--panel2);
                  border: 1px solid var(--border); }
-  .verdict-box .decision { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+  .verdict-box .decision { font-family: var(--serif); font-size: 30px; font-weight: 700;
+                           letter-spacing: .01em; }
   .decision.block { color: var(--red); } .decision.approve { color: var(--green); }
   .decision.verify_manually { color: var(--amber); }
-  .confbar { height: 8px; background: #0a0e14; border-radius: 4px; margin: 8px 0; overflow: hidden; }
+  .confbar { height: 8px; background: #F6F4F0; border-radius: 4px; margin: 8px 0; overflow: hidden; }
   .confbar > div { height: 100%; background: var(--blue); }
-  .verdict-box p { font-size: 14.5px; margin-top: 6px; }
-  .verdict-box .action { margin-top: 8px; padding: 8px 10px; background: #0a0e14;
-                         border-radius: 6px; font-size: 14px; }
+  .verdict-box p { font-size: 15.5px; line-height: 1.55; margin-top: 6px; }
+  .verdict-box .action { margin-top: 8px; padding: 9px 11px; background: #F6F4F0;
+                         border-radius: 6px; font-size: 15px; line-height: 1.5; }
   .hbtns { display: flex; gap: 10px; margin-top: 4px; }
-  .hbtns button { flex: 1; padding: 11px; font-size: 15px; font-weight: 700; border-radius: 8px;
+  .hbtns button { flex: 1; padding: 12px; font-size: 15px; font-weight: 600; border-radius: 999px;
                   border: none; cursor: pointer; }
-  #btn-approve { background: #14532d; color: #d1fae5; }
-  #btn-block { background: #7f1d1d; color: #fee2e2; }
-  #btn-rerun { width: 100%; margin-top: 8px; padding: 9px; font-size: 14px; font-weight: 600;
-               border-radius: 8px; border: 1px solid var(--border); background: var(--panel2);
+  #btn-approve { background: #6E9068; color: #FFFFFF; }
+  #btn-block { background: #A84432; color: #FFFFFF; }
+  #btn-rerun { width: 100%; margin-top: 8px; padding: 10px; font-size: 14px; font-weight: 600;
+               border-radius: 999px; border: 1px solid var(--border); background: var(--panel);
                color: var(--text); cursor: pointer; }
   #btn-rerun:hover { border-color: var(--blue); }
-  #btn-pay { width: 100%; margin-top: 8px; padding: 11px; font-size: 15px; font-weight: 700;
-             border-radius: 8px; border: 1px solid var(--teal); background: #0f2b28;
-             color: var(--teal); cursor: pointer; }
-  #btn-pay:hover:not(:disabled) { background: #123a35; }
+  #btn-pay { width: 100%; margin-top: 8px; padding: 12px; font-size: 15px; font-weight: 600;
+             border-radius: 999px; border: none; background: #22242A;
+             color: #FFFFFF; cursor: pointer; }
+  #btn-pay:hover:not(:disabled) { background: #33383D; }
   #btn-pay:disabled { opacity: .7; cursor: default; }
-  #btn-run-verification { width: 100%; margin-top: 10px; padding: 11px; font-size: 15px; font-weight: 700;
-                          border-radius: 8px; border: 1px solid var(--blue); background: #16283d;
+  #btn-run-verification { width: 100%; margin-top: 10px; padding: 12px; font-size: 15px; font-weight: 600;
+                          border-radius: 999px; border: 1px solid var(--blue); background: #EDF1F5;
                           color: var(--blue); cursor: pointer; }
-  #btn-run-verification:hover:not(:disabled) { background: #1c334d; }
+  #btn-run-verification:hover:not(:disabled) { background: #DFE8EF; }
   #btn-run-verification:disabled { opacity: .7; cursor: default; }
-  #btn-force-verification { width: 100%; margin-top: 10px; padding: 11px; font-size: 15px; font-weight: 700;
-                            border-radius: 8px; border: 1px solid var(--amber); background: #3a2d12;
+  #btn-force-verification { width: 100%; margin-top: 10px; padding: 12px; font-size: 15px; font-weight: 600;
+                            border-radius: 999px; border: 1px solid var(--amber); background: #F2EAD6;
                             color: var(--amber); cursor: pointer; }
-  #btn-force-verification:hover:not(:disabled) { background: #4a3a17; }
+  #btn-force-verification:hover:not(:disabled) { background: #EADFC2; }
   #btn-force-verification:disabled { opacity: .7; cursor: default; }
   .hbtns button:disabled { opacity: .45; cursor: default; }
   .human-note { font-size: 14px; color: var(--muted); }
@@ -267,12 +328,21 @@
 <body>
 <header>
   <h1>Trust Layer</h1>
-  <span class="sub">adversarial multi-agent verification · Bergström Bygg AB</span>
-  <button id="btn-real-integrations" onclick="toggleRealIntegrations()" title="Swap payment_history (and future adapters) between seeded mock data and live APIs — Zwapgrid today, Open Payments later">○ Seeded data</button>
+  <span class="sub">adversarial multi-agent verification</span>
+  <button id="btn-real-integrations" onclick="toggleRealIntegrations()" title="Swap payment_history (and future adapters) between seeded mock data and live APIs: Zwapgrid today, Open Payments later">○ Seeded data</button>
   <button id="btn-payments" onclick="openPaymentsModal()" title="Payments executed via Open Payments, cross-checked live against their status API">💳 Payments</button>
   <span id="conn" class="conn down">connecting…</span>
 </header>
 
+<div id="text-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closeTextModal()">
+  <div class="modal" style="width: min(620px, 92vw)">
+    <div class="modal-head">
+      <h2 id="text-modal-title"></h2>
+      <button onclick="closeTextModal()">✕</button>
+    </div>
+    <div id="text-modal-body" class="modal-body" style="padding-top: 16px"></div>
+  </div>
+</div>
 <div id="payments-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closePaymentsModal()">
   <div class="modal">
     <div class="modal-head">
@@ -293,7 +363,11 @@
       <button onclick="syncZwapgrid()">⇄ Sync invoices from Zwapgrid</button>
     </div>
     <div id="zwapgrid-sync-result" class="human-note" style="padding: 0 14px 6px"></div>
-    <div id="inbox"><div class="empty">No invoices yet — sync from Zwapgrid or open the demo drawer.</div></div>
+    <div class="modes">
+      <button id="tab-open" class="active" onclick="setInboxTab('open')">Inbox</button>
+      <button id="tab-history" onclick="setInboxTab('history')">History</button>
+    </div>
+    <div id="inbox"><div class="empty">No invoices yet. Sync from Zwapgrid or open the demo drawer.</div></div>
     <details class="drawer">
       <summary>Demo scenarios</summary>
       <div class="modes">
@@ -306,6 +380,8 @@
         <button data-scenario="ghost_supplier" onclick="fire('ghost_supplier')">Ghost supplier</button>
         <button data-scenario="legit_bank_change" onclick="fire('legit_bank_change')">Legit bank change</button>
         <button data-scenario="double_finance" onclick="fire('double_finance')">Double financing</button>
+        <button class="headline" style="border-color: var(--border); color: var(--muted)"
+                onclick="resetDemo()">↺ Reset demo data</button>
       </div>
     </details>
   </section>
@@ -316,6 +392,39 @@
       <h2>Verification pipeline</h2>
       <button id="btn-detail" onclick="toggleDetail()">Detail</button>
     </div>
+    <div id="mapwrap">
+      <svg id="agentmap" viewBox="0 0 1000 216" aria-label="Agent pipeline map">
+        <!-- lanes -->
+        <path id="lane-in"   class="lane" d="M 28 108 H 118"/>
+        <path id="lane-di"   class="lane" d="M 182 108 H 348"/>
+        <path id="lane-is"   class="lane" d="M 412 96 C 470 60, 510 52, 566 52"/>
+        <path id="lane-ia"   class="lane" d="M 412 120 C 470 156, 510 164, 566 164"/>
+        <path id="lane-sa"   class="lane" d="M 630 52 C 690 52, 726 66, 774 96"/>
+        <path id="lane-aa"   class="lane" d="M 630 164 C 690 164, 726 150, 774 120"/>
+        <path id="lane-av"   class="lane" d="M 838 108 H 908"/>
+        <path id="lane-auto" class="lane" d="M 150 140 C 150 206, 700 206, 924 140" stroke-dasharray="5 6"/>
+        <!-- nodes -->
+        <g class="mnode c-detector" id="mn-detector" transform="translate(150,108)">
+          <circle class="halo" r="30"/><circle class="core" r="30"/>
+          <text class="glyph" y="6">◆</text><text y="52">DETECTOR</text></g>
+        <g class="mnode c-investigator" id="mn-investigator" transform="translate(380,108)">
+          <circle class="halo" r="30"/><circle class="core" r="30"/>
+          <text class="glyph" id="evcount" y="6">⌕</text><text y="52">INVESTIGATOR</text></g>
+        <g class="mnode c-skeptic" id="mn-skeptic" transform="translate(598,52)">
+          <circle class="halo" r="26"/><circle class="core" r="26"/>
+          <text class="glyph" y="6">☠</text><text y="46">SKEPTIC</text></g>
+        <g class="mnode c-advocate" id="mn-advocate" transform="translate(598,164)">
+          <circle class="halo" r="26"/><circle class="core" r="26"/>
+          <text class="glyph" y="6">✓</text><text y="46">ADVOCATE</text></g>
+        <g class="mnode c-arbiter" id="mn-arbiter" transform="translate(806,108)">
+          <circle class="halo" r="30"/><circle class="core" r="30"/>
+          <text class="glyph" y="6">⚖</text><text y="52">ARBITER</text></g>
+        <g class="mnode c-verdict" id="mn-verdict" transform="translate(940,108)">
+          <circle class="halo" r="30"/><circle class="core" r="30"/>
+          <text id="mapverdict" y="5">·</text><text y="52">VERDICT</text></g>
+      </svg>
+    </div>
+    <div id="mapstatus">idle</div>
     <div id="pipeline"><div class="empty">Idle. Sync invoices or run a demo scenario.</div></div>
     <div id="detail-view" hidden>
     <div id="monitor-case">no active case</div>
@@ -391,6 +500,38 @@ function hasGiroAccount(account) {
   return /\d{2,4}-\d{4,7}/.test(account || "");
 }
 
+// Summary on the card, detail in a modal: clip() renders the visible
+// summary; the card's "Full …" link opens the stored full text.
+function clip(text, cut = 88) {
+  const t = String(text || "").trim();
+  if (t.length <= cut) return esc(t);
+  let head = t.slice(0, cut);
+  const sp = head.lastIndexOf(" ");
+  if (sp > cut * 0.6) head = head.slice(0, sp);
+  return `${esc(head)}…`;
+}
+
+function bullet(text, lead = false) {
+  return `<li${lead ? ' class="lead"' : ""}>${clip(text)}</li>`;
+}
+
+const textModals = {};  // key -> {title, html}; rebuilt on every render
+
+function openTextModal(key) {
+  const m = textModals[key];
+  if (!m) return;
+  $("#text-modal-title").textContent = m.title;
+  $("#text-modal-body").innerHTML = m.html;
+  $("#text-modal").classList.remove("hidden");
+}
+function closeTextModal() { $("#text-modal").classList.add("hidden"); }
+window.openTextModal = openTextModal; window.closeTextModal = closeTextModal;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeTextModal(); });
+
+function sentences(text) {
+  return String(text || "").split(/(?<=[.!?])\s+(?=[A-ZÅÄÖ])/).map(t => t.trim()).filter(Boolean);
+}
+
 let mode = "live";           // "live" hits the agents, "replay" plays a recording
 let recordings = [];
 
@@ -406,7 +547,7 @@ function updateScenarioButtons() {
     const name = b.dataset.scenario;
     const usable = mode === "live" || recordings.includes(name);
     b.disabled = !usable;
-    b.title = usable ? "" : `no recording yet — uv run python -m app.record ${name}`;
+    b.title = usable ? "" : `no recording yet: uv run python -m app.record ${name}`;
   });
 }
 
@@ -415,6 +556,22 @@ async function loadRecordings() {
     recordings = (await (await fetch("/demo/recordings")).json()).recordings || [];
   } catch { recordings = []; }
   updateScenarioButtons();
+}
+
+async function resetDemo() {
+  await fetch("/demo/reset", { method: "POST" });
+  // local state clears when the reset heartbeat arrives, so every open
+  // browser resets together, not just this one
+}
+window.resetDemo = resetDemo;
+
+function clearLocalState() {
+  invoices.clear(); cases.clear(); plines.clear(); toolCounts.clear();
+  mapReset();
+  selectedInvoice = null; selectedCase = null;
+  resetMonitor(null);
+  renderInbox(); renderPipeline(); renderDetail();
+  refreshInvoices(); refreshCases();
 }
 
 async function fire(name) {
@@ -483,7 +640,7 @@ async function loadPaymentsModal() {
   }
   const rows = data.payments || [];
   if (!rows.length) {
-    body.innerHTML = '<div class="empty">No payments executed yet — approve a case, then click EXECUTE PAYMENT.</div>';
+    body.innerHTML = '<div class="empty">No payments executed yet. Approve a case, then click EXECUTE PAYMENT.</div>';
     return;
   }
   const head = `<div class="pay-row head">
@@ -524,6 +681,7 @@ async function refreshCases() {
 const STATUS_LABEL = {
   auto_approved: "AUTO-APPROVED", under_review: "UNDER REVIEW", blocked: "BLOCKED",
   approved: "APPROVED", invalid: "QUARANTINED", received: "RECEIVED", fetched: "FETCHED",
+  paid: "⚡ PAID",
 };
 
 let _invoiceRefreshTimer = null;
@@ -541,15 +699,45 @@ async function refreshInvoices() {
   renderInbox();
 }
 
+// Inbox = needs attention; History = handled (decided, auto-approved, paid).
+let inboxTab = "open";
+const OPEN_STATUSES = ["fetched", "received", "under_review"];
+
+function setInboxTab(tab) {
+  inboxTab = tab;
+  $("#tab-open").classList.toggle("active", tab === "open");
+  $("#tab-history").classList.toggle("active", tab === "history");
+  renderInbox();
+}
+window.setInboxTab = setInboxTab;
+
+function invoicePaid(inv) {
+  return inv.case_ids.some(id => {
+    const c = cases.get(id);
+    return c && c.payment_status && c.payment_status !== "failed";
+  });
+}
+
 function renderInbox() {
   const box = $("#inbox");
-  if (!invoices.size) {
-    box.innerHTML = '<div class="empty">No invoices yet — sync from Zwapgrid or open the demo drawer.</div>';
+  const rows = [...invoices.values()];
+  const open = rows.filter(r => OPEN_STATUSES.includes(r.status));
+  const done = rows.filter(r => !OPEN_STATUSES.includes(r.status));
+  $("#tab-open").textContent = `Inbox${open.length ? ` (${open.length})` : ""}`;
+  $("#tab-history").textContent = `History${done.length ? ` (${done.length})` : ""}`;
+  const shown = inboxTab === "open" ? open : done;
+  if (!shown.length) {
+    box.innerHTML = inboxTab === "open"
+      ? '<div class="empty">Inbox clear. Sync from Zwapgrid or open the demo drawer.</div>'
+      : '<div class="empty">Nothing handled yet.</div>';
     return;
   }
   box.innerHTML = "";
-  for (const inv of invoices.values()) {
-    const chip = `<span class="chip ${esc(inv.status)}">${STATUS_LABEL[inv.status] || esc(inv.status)}</span>`;
+  for (const inv of shown) {
+    const paid = invoicePaid(inv);
+    const chip = paid
+      ? '<span class="chip approved">⚡ PAID</span>'
+      : `<span class="chip ${esc(inv.status)}">${STATUS_LABEL[inv.status] || esc(inv.status)}</span>`;
     const caseMark = inv.case_ids.length ? ` · ${inv.case_ids.length} case` : "";
     const noAccountMark = hasGiroAccount(inv.bank_account) ? "" :
       ` · <span style="color:var(--amber)" title="No bankgiro/plusgiro on file — can't pay via Open Payments without confirming one">⚠ no account</span>`;
@@ -641,13 +829,6 @@ function updatePipeline(hb) {
 
   if (hb.agent === "system") {
     const pl = hb.payload || {};
-    if (pl.quarantined && pl.invoice) {
-      plSet(key, { text: `Quarantined placeholder from ${esc(pl.invoice.supplier_name)}`,
-                   sub: d, dot: "done",
-                   chip: '<span class="chip invalid">QUARANTINED</span>',
-                   expires: Date.now() + 8000 });
-      return;
-    }
     if (pl.auto_approved && pl.invoice) {
       plSet(key, { text: `Auto-approved: ${esc(pl.invoice.supplier_name)} · ` +
                          `${Number(pl.invoice.amount_sek).toLocaleString("sv-SE")} SEK`,
@@ -666,9 +847,11 @@ function updatePipeline(hb) {
                       dot: "error", click: c.id, chip: "" });
       } else if (c.verdict) {
         const v = c.verdict;
+        const chipText = v.decision === "verify_manually"
+          ? "NEEDS A HUMAN"
+          : `${v.decision.toUpperCase()} · ${(v.confidence * 100).toFixed(0)}%`;
         plSet(c.id, { text: "Verification complete", sub: c.claim.summary, dot: "done", click: c.id,
-                      chip: `<span class="badge ${esc(v.decision)}">` +
-                            `${v.decision.replace("_", " ").toUpperCase()} · ${(v.confidence * 100).toFixed(0)}%</span>` });
+                      chip: `<span class="badge ${esc(v.decision)}">${chipText}</span>` });
         if (c.human_decision) {
           plSet(c.id, { sub: `Human decision: ${c.human_decision.toUpperCase()}` });
         }
@@ -720,6 +903,177 @@ function updatePipeline(hb) {
   }
 }
 
+// ---------- center panel: the agent map ----------
+// One case owns the map at a time; a pulse physically travels the lanes as
+// the pipeline advances, driven by the same heartbeat stream as everything else.
+const MAP_NODES = ["detector", "investigator", "skeptic", "advocate", "arbiter", "verdict"];
+let mapCase = null;        // case/invoice id currently owning the map
+let mapStage = "idle";
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function svgEl(name, attrs) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function nodeColor(node) {
+  return { detector: "--teal", investigator: "--blue", skeptic: "--red",
+           advocate: "--green", arbiter: "--violet", verdict: "--green" }[node] || "--blue";
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#5E86A8";
+}
+
+function sendPulse(laneId, colorVar) {
+  const path = document.getElementById(laneId);
+  if (!path) return;
+  const svg = $("#agentmap");
+  path.classList.add("lit");
+  path.style.setProperty("--nc", `var(${colorVar})`);
+  setTimeout(() => path.classList.remove("lit"), 1400);
+  if (REDUCED) return;
+  const dot = svgEl("circle", { r: 6, fill: cssVar(colorVar) });
+  svg.appendChild(dot);
+  const len = path.getTotalLength();
+  const t0 = performance.now(), dur = 650;
+  (function step(now) {
+    const t = Math.min((now - t0) / dur, 1);
+    const pt = path.getPointAtLength(len * t);
+    dot.setAttribute("cx", pt.x); dot.setAttribute("cy", pt.y);
+    dot.setAttribute("opacity", String(1 - t * 0.25));
+    if (t < 1) requestAnimationFrame(step); else dot.remove();
+  })(t0);
+}
+
+function mapNode(node, state) {  // state: "", "active", "done", "error"
+  const g = document.getElementById(`mn-${node}`);
+  if (g) g.setAttribute("class", g.getAttribute("class").replace(/ (active|done|error)/g, "") +
+                        (state ? ` ${state}` : ""));
+}
+
+function mapReset() {
+  mapCase = null; mapStage = "idle";
+  for (const n of MAP_NODES) mapNode(n, "");
+  const v = $("#mapverdict");
+  v.textContent = "·"; v.style.fill = "";
+  document.getElementById("mn-verdict").style.removeProperty("--nc");
+  $("#evcount").textContent = "⌕";
+  $("#mapstatus").textContent = "idle";
+  document.querySelectorAll("#agentmap .lane").forEach(l => l.classList.remove("lit"));
+}
+
+function mapStatus(text) { $("#mapstatus").textContent = text; }
+
+function mapFinish(decision, confidence) {
+  ["detector", "investigator", "skeptic", "advocate", "arbiter"].forEach(n => mapNode(n, "done"));
+  sendPulse("lane-av", nodeColor("arbiter"));
+  const v = $("#mapverdict");
+  const color = decision === "approve" ? "var(--green)"
+              : decision === "block" ? "var(--red)" : "var(--amber)";
+  // the word alone: confidence lives in the status chip, and text wider than
+  // the circle reads as clutter on a projector
+  const short = decision === "verify_manually" ? "HUMAN" : decision.toUpperCase();
+  setTimeout(() => {
+    const g = document.getElementById("mn-verdict");
+    g.style.setProperty("--nc", color);
+    mapNode("verdict", "done");
+    v.textContent = short;
+    v.style.fill = color;
+  }, REDUCED ? 0 : 620);
+  mapStage = "done";
+}
+
+function updateMap(hb) {
+  const key = hb.case_id;
+  const d = hb.detail || "";
+  const pl = hb.payload || {};
+
+  if (pl.reset) { mapReset(); return; }
+
+  // a fresh intake takes over the map once the previous run has concluded
+  if (hb.agent === "detector" && hb.state === "thinking") {
+    if (mapCase === null || mapStage === "done" || mapStage === "error") {
+      mapReset(); mapCase = key; mapStage = "screening";
+      sendPulse("lane-in", nodeColor("detector"));
+      mapNode("detector", "active");
+      mapStatus(d);
+    }
+    return;
+  }
+
+  if (hb.agent === "system") {
+    if (pl.auto_approved && pl.invoice && key === mapCase) {
+      mapNode("detector", "done");
+      sendPulse("lane-auto", "--green");
+      mapFinish("approve", null);
+      $("#mapverdict").textContent = "AUTO";
+      mapStatus(`auto-approved: ${pl.invoice.supplier_name}`);
+      return;
+    }
+    if (pl.case) {
+      const c = pl.case;
+      // adopt this case if the map is idle/finished or already following its invoice
+      if (mapCase === null || mapStage === "done" || mapStage === "error"
+          || mapCase === c.claim.invoice_id || mapCase === c.id) {
+        if (mapCase !== c.id) {
+          if (mapCase !== c.claim.invoice_id) { mapReset(); mapNode("detector", "done"); }
+          mapCase = c.id;
+        }
+        if (c.status === "error") {
+          for (const n of MAP_NODES) { const g = document.getElementById(`mn-${n}`);
+            if (g.getAttribute("class").includes("active")) mapNode(n, "error"); }
+          mapStage = "error"; mapStatus("pipeline failed, route to manual review");
+        } else if (c.verdict) {
+          mapFinish(c.verdict.decision, c.verdict.confidence);
+          mapStatus(c.claim.summary);
+        } else {
+          mapNode("detector", "done"); mapStage = "investigating";
+          sendPulse("lane-di", nodeColor("investigator"));
+          mapNode("investigator", "active");
+          mapStatus(c.claim.summary);
+        }
+      }
+      return;
+    }
+    if (key !== mapCase) return;
+    if (d.includes("skeptic vs advocate")) {
+      mapNode("investigator", "done"); mapStage = "debating";
+      sendPulse("lane-is", nodeColor("skeptic"));
+      sendPulse("lane-ia", nodeColor("advocate"));
+      mapNode("skeptic", "active"); mapNode("advocate", "active");
+      mapStatus("skeptic and advocate debating the evidence");
+    } else if (d.includes("arbiter deciding")) {
+      mapNode("skeptic", "done"); mapNode("advocate", "done"); mapStage = "arbitrating";
+      sendPulse("lane-sa", nodeColor("skeptic"));
+      sendPulse("lane-aa", nodeColor("advocate"));
+      mapNode("arbiter", "active");
+      mapStatus("arbiter weighing the debate");
+    }
+    return;
+  }
+
+  // per-agent beats for the case the map is following
+  if (key !== mapCase) return;
+  if (hb.state === "error") {
+    for (const n of MAP_NODES) { const g = document.getElementById(`mn-${n}`);
+      if (g.getAttribute("class").includes("active")) mapNode(n, "error"); }
+    mapStage = "error"; mapStatus(d);
+    return;
+  }
+  if (hb.agent === "investigator") {
+    if (hb.state === "tool_result") {
+      const n = toolCounts.get(key) || 0;   // already counted by updatePipeline
+      $("#evcount").textContent = String(n);
+      sendPulse("lane-di", nodeColor("investigator"));
+    }
+    if (hb.state === "tool_call" || hb.state === "tool_result") mapStatus(d);
+  } else if ((hb.agent === "skeptic" || hb.agent === "advocate") && hb.state === "done") {
+    mapStatus(`${hb.agent}: ${d}`);
+  }
+}
+
 function toggleDetail() {
   const dv = $("#detail-view");
   dv.hidden = !dv.hidden;
@@ -757,7 +1111,7 @@ function updateAgentCard(hb) {
     const e = hb.payload.evidence;
     const ul = $("#evidence-live");
     ul.classList.add("on");
-    ul.insertAdjacentHTML("beforeend", `<li>▸ <b>${esc(toolLabel(e.tool))}</b> — ${esc(e.finding)}</li>`);
+    ul.insertAdjacentHTML("beforeend", `<li>▸ <b>${esc(toolLabel(e.tool))}</b> · ${esc(e.finding)}</li>`);
     ul.scrollTop = ul.scrollHeight;
   }
   if (hb.payload && hb.payload.text) {
@@ -778,7 +1132,6 @@ function logLine(hb) {
 // ---------- right panel ----------
 const INVOICE_NOTE = {
   auto_approved: "Auto-approved: matched the supplier baseline on every field. No verification case.",
-  invalid: "Quarantined as a placeholder/test record. Not sent to verification.",
   received: "Received. Awaiting processing.",
   fetched: "Fetched from Zwapgrid, not yet checked. Click Run verification to send it through the intake pipeline.",
 };
@@ -830,27 +1183,53 @@ function renderVerdict(c) {
 
   const finalArgs = (c.arguments || []).slice(-2);
   const debateHtml = finalArgs.length ? `
-    <div class="debate">${finalArgs.map(a => `
+    <div class="debate">${finalArgs.map(a => {
+      const label = a.stance === "skeptic" ? "☠ Skeptic" : "✓ Advocate";
+      const points = [a.strongest_point,
+                      ...(a.points || []).filter(pt => pt !== a.strongest_point)];
+      const key = `arg-${c.id}-${a.stance}`;
+      textModals[key] = {
+        title: `${label} · full argument`,
+        html: `<div class="tm-section"><ul>${points.map((pt, i) =>
+                 `<li${i === 0 ? ' class="lead"' : ""}>${esc(pt)}</li>`).join("")}</ul></div>`,
+      };
+      return `
       <div class="arg ${a.stance}">
-        <h4>${a.stance === "skeptic" ? "☠ Skeptic" : "✓ Advocate"} — strongest point</h4>
-        ${esc(a.strongest_point)}
-      </div>`).join("")}
+        <h4>${label}</h4>
+        <ul class="pts">${points.slice(0, 3).map((pt, i) => bullet(pt, i === 0)).join("")}</ul>
+        <span class="morelink" onclick="openTextModal('${key}')">Full argument →</span>
+      </div>`;
+    }).join("")}
     </div>` : "";
 
   let verdictHtml = "";
   if (c.verdict) {
     const v = c.verdict;
+    const conf = v.decision === "verify_manually"
+      ? '<span style="color:var(--muted)"> · evidence cuts both ways, a human decides</span>'
+      : ` <span style="color:var(--muted)"> · confidence ${(v.confidence * 100).toFixed(0)}%</span>
+          <div class="confbar"><div style="width:${(v.confidence * 100).toFixed(0)}%"></div></div>`;
     verdictHtml = `
       <div class="verdict-box">
         <span class="decision ${v.decision}">${v.decision.replace("_", " ").toUpperCase()}</span>
-        <span style="color:var(--muted)"> · confidence ${(v.confidence * 100).toFixed(0)}%</span>
-        <div class="confbar"><div style="width:${(v.confidence * 100).toFixed(0)}%"></div></div>
-        <p>${esc(v.reasoning)}</p>
-        <div class="action">→ ${esc(v.recommended_action)}</div>
+        ${conf}
+        <ul class="pts" style="margin-top:10px">${sentences(v.reasoning).slice(0, 3).map(t => bullet(t)).join("")}</ul>
+        <div class="action">→ ${clip(v.recommended_action, 110)}</div>
+        <span class="morelink" onclick="openTextModal('${(() => {
+          const key = `verdict-${c.id}`;
+          textModals[key] = {
+            title: `Verdict · ${v.decision.replace("_", " ")}`,
+            html: `<div class="tm-section"><h3>Reasoning</h3><p>${esc(v.reasoning)}</p></div>
+                   <div class="tm-section"><h3>Recommended action</h3><p>${esc(v.recommended_action)}</p></div>
+                   ${(v.key_evidence || []).length ? `<div class="tm-section"><h3>Decisive evidence</h3>
+                     <ul>${v.key_evidence.map(k => `<li>${esc(k)}</li>`).join("")}</ul></div>` : ""}`,
+          };
+          return key;
+        })()}')">Full verdict →</span>
       </div>`;
   } else if (c.status === "error") {
     verdictHtml = `<div class="verdict-box"><span class="decision block">PIPELINE ERROR</span>
-      <p>The verification pipeline failed — route to manual review.</p></div>`;
+      <p>The verification pipeline failed. Route to manual review.</p></div>`;
   }
 
   const decided = !!c.human_decision;
@@ -860,7 +1239,7 @@ function renderVerdict(c) {
   const payHtml = c.human_decision === "approve" ? (
     !paid && !hasGiro
       ? `<div class="human-note" style="color:var(--amber); margin-top:8px">
-           No bank account on file for this invoice (bank_account=${esc((payInvoice && payInvoice.bank_account) || "UNKNOWN")}) —
+           No bank account on file for this invoice (bank_account=${esc((payInvoice && payInvoice.bank_account) || "UNKNOWN")}):
            the real Zwapgrid data didn't carry one. Confirm the real bankgiro/plusgiro through
            another channel and enter it below to pay.
          </div>
@@ -873,7 +1252,7 @@ function renderVerdict(c) {
       : `<button id="btn-pay" ${paid ? "disabled" : ""} onclick="payCase('${c.id}')">
            ${paid ? `✓ PAID via Open Payments (${esc(c.payment_status)})` : "⚡ EXECUTE PAYMENT (Open Payments)"}
          </button>
-         ${c.payment_status === "failed" ? '<div class="human-note" style="color:var(--red)">Payment failed — click to retry.</div>' : ""}`
+         ${c.payment_status === "failed" ? '<div class="human-note" style="color:var(--red)">Payment failed. Click to retry.</div>' : ""}`
   ) : "";
   const humanHtml = c.verdict || c.status === "error" ? `
     <div class="hbtns">
@@ -899,6 +1278,11 @@ async function decide(caseId, decision) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision }),
   });
+  if (!res.ok) {  // a silent no-op button is worse than an alert
+    const err = await res.json().catch(() => ({ detail: "decision failed" }));
+    alert(err.detail || "decision failed");
+    return;
+  }
   const c = await res.json();
   cases.set(c.id, c);
   refreshInvoicesSoon();
@@ -986,8 +1370,10 @@ function connect() {
     const hb = JSON.parse(msg.data);
     logLine(hb);
     updatePipeline(hb);
+    updateMap(hb);
 
     if (hb.agent === "system") {
+      if (hb.payload && hb.payload.reset) { clearLocalState(); return; }
       refreshInvoicesSoon();  // system beats mark invoice/case state changes
       if (hb.payload && hb.payload.case) {
         const c = hb.payload.case;

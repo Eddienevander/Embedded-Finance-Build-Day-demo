@@ -6,7 +6,7 @@ verify_manually fallback remains as a last resort for a truncated response.
 
 import json
 
-from app.agents.base import BaseAgent, truncate
+from app.agents.base import STYLE_RULES, BaseAgent, truncate
 from app.models import Argument, Claim, Evidence, SupplierBaseline, Verdict
 from app.schemas import VerdictOut, clamp01
 
@@ -17,8 +17,8 @@ arguments from both the skeptic (fraud) and the advocate (legitimate), including
 one rebuttal round each. Weigh them and decide: approve, block, or verify_manually.
 
 key_evidence must quote the Evidence findings that drove the decision, verbatim.
-reasoning is 2-4 sentences. recommended_action is one concrete next step for the
-payments team.
+reasoning is 2-4 SHORT sentences in plain language. recommended_action is one
+concrete imperative instruction for the payments team.
 
 CRITICAL RULE: if your decision is "block" on a bank_account_changed claim, the
 recommended_action MUST be to contact the supplier via the PREVIOUSLY KNOWN
@@ -32,7 +32,7 @@ the decision MUST be "block" — paying the same receivable twice is never corre
 and blocking the duplicate costs nothing (the supplier can re-issue if a second
 payment is genuinely owed). Reserve verify_manually for when the duplicate
 detection itself appears mistaken.
-"""
+""" + STYLE_RULES
 
 FALLBACK = Verdict(
     decision="verify_manually", confidence=0.0, key_evidence=[],
@@ -79,10 +79,12 @@ class Arbiter(BaseAgent):
                 )
             except ValueError as e:  # truncated / unparseable response
                 await self.beat("deciding",
-                                f"Verdict unreadable ({truncate(str(e), 60)}) — manual review")
+                                f"Verdict unreadable ({truncate(str(e), 60)}), manual review")
                 verdict = FALLBACK
-            await self.beat("done",
-                            f"Verdict: {verdict.decision.upper()} ({verdict.confidence:.0%})",
+            label = ("VERIFY_MANUALLY (evidence cuts both ways, a human decides)"
+                     if verdict.decision == "verify_manually"
+                     else f"{verdict.decision.upper()} ({verdict.confidence:.0%})")
+            await self.beat("done", f"Verdict: {label}",
                             payload={"verdict": verdict.model_dump(mode="json")})
             return verdict
         except Exception as e:

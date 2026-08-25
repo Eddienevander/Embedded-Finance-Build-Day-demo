@@ -21,6 +21,7 @@ from app.ingest import process_invoice
 from app.models import Invoice
 from app.orchestrator import (
     CASES,
+    cancel_running_cases,
     get_registry,
     load_persisted_cases,
     real_integrations_enabled,
@@ -28,7 +29,7 @@ from app.orchestrator import (
     set_real_integrations,
 )
 from app.replay import available_recordings, has_recording, replay_scenario
-from app.seed import SCENARIOS, make_scenario_invoices
+from app.seed import SCENARIOS, make_scenario_invoices, seed
 from app.tools.openpayments_real import (
     OpenPaymentsError,
     OpenPaymentsPISClient,
@@ -114,13 +115,14 @@ async def submit_invoice(invoice: Invoice) -> dict:
 
 
 @app.get("/invoices")
-async def list_invoices(include_paid: bool = False) -> list[dict]:
-    """The invoice inbox: everything except seeded history, newest first, with
-    the ids of any verification cases spawned for each invoice."""
+async def list_invoices(include_historical: bool = False) -> list[dict]:
+    """The invoice list: everything except seeded backfill, newest first, with
+    the ids of any verification cases spawned for each invoice. Invoices paid
+    out through the app (status 'paid') are always included."""
     cases_by_invoice: dict[str, list[str]] = {}
     for case in CASES.values():
         cases_by_invoice.setdefault(case.claim.invoice_id, []).append(case.id)
-    rows = get_db().list_invoices(exclude_statuses=() if include_paid else ("paid",))
+    rows = get_db().list_invoices(exclude_statuses=() if include_historical else ("historical",))
     return [{**row, "case_ids": cases_by_invoice.get(row["id"], [])} for row in rows]
 
 
@@ -208,6 +210,23 @@ async def sync_zwapgrid() -> dict:
     return summary
 
 
+@app.post("/demo/reset")
+async def reset_demo() -> dict:
+    """Wipe invoices, cases and payments and reseed the supplier baselines,
+    without restarting the server. Lets a rehearsal or stage run start from a
+    blank slate and re-fire the same scenarios."""
+    cancelled = cancel_running_cases()  # zombie pipelines must not outlive the reset
+    seed(get_db())  # resets every table, then rebuilds 12 months of history
+    CASES.clear()
+    if cancelled:
+        await bus.emit("reset", "system", "done",
+                       f"Cancelled {cancelled} running verification case(s).")
+    await bus.emit("reset", "system", "done",
+                   "Demo data reset: invoices and cases cleared, supplier baselines reseeded.",
+                   payload={"reset": True})
+    return {"ok": True}
+
+
 @app.get("/demo/recordings")
 async def list_recordings() -> dict:
     """Which scenarios can be replayed without touching the network."""
@@ -236,6 +255,17 @@ async def replay_recorded(name: str, speed: float = 1.0) -> dict:
     return {"scenario": name, "mode": "replay", "speed": speed, "status": "started"}
 
 
+def _find_case(case_id: str):
+    """CASES first, database second: a case saved by a task that outlived a
+    reset (or a restart) is still decidable instead of a 404."""
+    case = CASES.get(case_id)
+    if case is None:
+        case = get_db().get_case(case_id)
+        if case is not None:
+            CASES[case.id] = case
+    return case
+
+
 @app.get("/cases")
 async def list_cases() -> list[dict]:
     return [c.model_dump(mode="json") for c in CASES.values()]
@@ -243,7 +273,7 @@ async def list_cases() -> list[dict]:
 
 @app.get("/cases/{case_id}")
 async def get_case(case_id: str) -> dict:
-    case = CASES.get(case_id)
+    case = _find_case(case_id)
     if case is None:
         raise HTTPException(404, f"no such case: {case_id}")
     return case.model_dump(mode="json")
@@ -255,7 +285,7 @@ class DecisionBody(BaseModel):
 
 @app.post("/cases/{case_id}/decision")
 async def record_decision(case_id: str, body: DecisionBody) -> dict:
-    case = CASES.get(case_id)
+    case = _find_case(case_id)
     if case is None:
         raise HTTPException(404, f"no such case: {case_id}")
     db = get_db()
@@ -284,7 +314,7 @@ async def pay_case(case_id: str, body: PayBody | None = None) -> dict:
     has approved. On settlement, marks the invoice paid in our own DB —
     Zwapgrid has no write-back for this (verified: its Accounting API is
     GET/POST-only, no PATCH on supplier invoices)."""
-    case = CASES.get(case_id)
+    case = _find_case(case_id)
     if case is None:
         raise HTTPException(404, f"no such case: {case_id}")
     if case.human_decision != "approve":
@@ -411,14 +441,14 @@ async def list_executed_payments() -> dict:
 @app.post("/cases/{case_id}/rerun")
 async def rerun(case_id: str) -> dict:
     """Re-run a finished or failed case through the pipeline, in place."""
-    case = CASES.get(case_id)
+    case = _find_case(case_id)
     if case is None:
         raise HTTPException(404, f"no such case: {case_id}")
     db = get_db()
     invoice = db.get_invoice(case.claim.invoice_id)
     if invoice is None:
         raise HTTPException(409, "the invoice for this case is not on file "
-                                 "(replayed case?) — fire the live scenario instead")
+                                 "(replayed case?): fire the live scenario instead")
     rerun_case(case, invoice, db.get_baseline(case.claim.supplier_orgnr), db)
     return case.model_dump(mode="json")
 

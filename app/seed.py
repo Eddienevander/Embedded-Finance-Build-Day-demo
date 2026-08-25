@@ -36,6 +36,15 @@ SUPPLIERS: list[dict] = [
      "email": "faktura@kungsholmenkontor.se", "avg": 8_200, "terms": 30, "n": 12},
     {"name": "Öresund Verktygsuthyrning AB", "orgnr": "556533-6677", "account": "BG 890-1233",
      "email": "ekonomi@oresundverktyg.se", "avg": 450_000, "terms": 60, "n": 10},
+    # The one supplier that exists in the connected Zwapgrid/Fortnox sandbox.
+    # Its "orgnr" is Fortnox's supplier number (that is what the feed returns in
+    # customerAssignedAccountId); giving it a local baseline + history means
+    # invoices synced from the real rail land on real baselines like everyone
+    # else's. See app/zwapgrid_seed.py for pushing demo invoices to it.
+    # account has no "BG " prefix on purpose: it must string-match what the
+    # Zwapgrid reader regex-extracts from the invoice notes ("543-2109").
+    {"name": "Cloudlane Systems AB - Seed", "orgnr": "1", "account": "543-2109",
+     "email": "billing@cloudlane.se", "avg": 46_000, "terms": 30, "n": 12},
 ]
 
 # --- scenario constants (fixture keys for the mock tools) --------------------
@@ -60,6 +69,7 @@ LEGIT_ANNOUNCEMENT_DATE = "2026-08-01"
 
 CLEAN_SUPPLIER = SUPPLIERS[2]  # Mälardalens El & Automation AB
 DOUBLE_SUPPLIER = SUPPLIERS[3]  # Götaland Grus & Schakt AB
+ZWAPGRID_SUPPLIER = SUPPLIERS[8]  # Cloudlane, the real sandbox supplier
 
 SCENARIOS = ["clean", "account_swap", "ghost_supplier", "legit_bank_change", "double_finance"]
 
@@ -91,7 +101,9 @@ def seed(db: Database) -> None:
                 reference=f"F{issued.year}-{rng.randint(1000, 9999)}",
                 due_date=due, issued_date=issued, contact_email=s["email"],
             )
-            db.insert_invoice(inv, status="paid")
+            # "historical": seeded backfill, hidden from the inbox. Not "paid",
+            # which is reserved for real payouts executed through the app.
+            db.insert_invoice(inv, status="historical")
             # occasional lateness
             paid_at = due + timedelta(days=rng.choice([0, 0, 0, 1, 2, -1, 8]))
             db.add_payment(s["orgnr"], inv.id, amount, s["account"], paid_at)
@@ -130,7 +142,7 @@ def make_scenario_invoices(name: str) -> list[Invoice]:
             reference=f"F{today.year}-{uuid.uuid4().hex[:4].upper()}",
             issued_date=today, due_date=today + timedelta(days=s["terms"]),
             contact_email=ATTACK_CONTACT,
-            raw_note="Vi har bytt bank – vänligen använd vårt nya konto för alla framtida betalningar.",
+            raw_note="Vi har bytt bank, vänligen använd vårt nya konto för alla framtida betalningar.",
         )]
 
     if name == "ghost_supplier":
