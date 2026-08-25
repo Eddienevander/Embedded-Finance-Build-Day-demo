@@ -258,6 +258,17 @@ function esc(s) {
     ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+// Display-only relabel: "payment_history" is the same tool name whether it's
+// reading seeded mock data or a live Zwapgrid call (see app/tools/base.py) —
+// show which one it actually was, based on the current toggle state, so it
+// doesn't read as generic/unclear in the evidence trail.
+function toolLabel(tool) {
+  if (tool === "payment_history" && $("#btn-real-integrations")?.classList.contains("on")) {
+    return "zwapgrid_agent";
+  }
+  return tool;
+}
+
 let mode = "live";           // "live" hits the agents, "replay" plays a recording
 let recordings = [];
 
@@ -400,7 +411,7 @@ function updateAgentCard(hb) {
     const e = hb.payload.evidence;
     const ul = $("#evidence-live");
     ul.classList.add("on");
-    ul.insertAdjacentHTML("beforeend", `<li>▸ <b>${esc(e.tool)}</b> — ${esc(e.finding)}</li>`);
+    ul.insertAdjacentHTML("beforeend", `<li>▸ <b>${esc(toolLabel(e.tool))}</b> — ${esc(e.finding)}</li>`);
     ul.scrollTop = ul.scrollHeight;
   }
   if (hb.payload && hb.payload.text) {
@@ -425,7 +436,7 @@ function renderVerdict(c) {
 
   const evidenceHtml = (c.evidence || []).map(e => `
     <div class="ev ${e.supports}">
-      <div class="tag">${esc(e.tool)} · <span class="sup-${e.supports}">${e.supports}</span> · ${(e.confidence * 100).toFixed(0)}%</div>
+      <div class="tag">${esc(toolLabel(e.tool))} · <span class="sup-${e.supports}">${e.supports}</span> · ${(e.confidence * 100).toFixed(0)}%</div>
       ${esc(e.finding)}
     </div>`).join("") || '<div class="empty">no evidence yet</div>';
 
