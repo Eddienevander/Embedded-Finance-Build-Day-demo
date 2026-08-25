@@ -19,6 +19,13 @@ MODEL: str = os.getenv("MODEL", "claude-sonnet-4-6")
 
 DB_PATH: str = os.getenv("TRUST_LAYER_DB", "trust_layer.db")
 
+# Zwapgrid API.1 (Accounting API) — invoice interchange, see app/tools/zwapgrid_real.py.
+# The Consent is created once during onboarding (buyer connects Fortnox/Xero/etc via
+# Zwapgrid's Client Portal flow) — this app only polls an already-ACTIVE consent.
+ZWAPGRID_BASE_URL: str = os.getenv("ZWAPGRID_BASE_URL", "https://apione.zwapgrid.com/accounting/api/v1")
+ZWAPGRID_API_KEY: str | None = os.getenv("ZWAPGRID_API_KEY")
+ZWAPGRID_CONSENT_ID: str | None = os.getenv("ZWAPGRID_CONSENT_ID")
+
 # A hung LLM call must never freeze the demo: hard per-request timeout.
 LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "90"))
 LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "2000"))
