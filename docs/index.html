@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Layer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Single deliberate light theme, sharing the dashboard's editorial system:
+     warm off-white ground, white cards, hairlines, serif display, muted
+     natural agent hues. Deck and live demo read as one product. */
+  :root {
+    --ink: #F7F5F1; --panel: #FFFFFF; --panel2: #F4F1EC; --line: #E6E2DA;
+    --text: #22242A; --muted: #6E6A63; --dim: #A9A49B;
+    --blue: #5E86A8; --red: #A84432; --green: #6E9068; --violet: #8B7A9B;
+    --amber: #A8823C; --teal: #5F8F89;
+    --display: "Playfair Display", Georgia, "Times New Roman", serif;
+    --body: "Instrument Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ink); color: var(--text);
+    font-family: var(--body); font-size: 18px; line-height: 1.5;
+    overflow: hidden;
+  }
+
+  /* chrome */
+  .rail {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 36px; font-family: var(--mono); font-size: 13px;
+    color: var(--dim); letter-spacing: .12em; text-transform: uppercase;
+  }
+  .rail .wordmark { color: var(--text); font-family: var(--display); font-weight: 800;
+                    letter-spacing: .08em; }
+  .rail .ctx { flex: 1; }
+  #progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--red);
+              width: 0%; z-index: 11; transition: width .25s ease; }
+  #counter { font-variant-numeric: tabular-nums; }
+  .navhint { position: fixed; bottom: 20px; right: 36px; z-index: 10;
+             font-family: var(--mono); font-size: 13px; color: var(--dim); }
+  .navhint button { background: var(--panel); border: 1px solid var(--line); color: var(--text);
+                    border-radius: 8px; padding: 6px 14px; font-size: 15px; cursor: pointer; }
+  .navhint button:hover { border-color: var(--blue); }
+  .navhint button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  /* slides */
+  .slide {
+    position: absolute; inset: 0; padding: 96px 72px 72px;
+    display: flex; flex-direction: column; justify-content: center;
+    opacity: 0; visibility: hidden; transform: translateY(12px); z-index: 1;
+    transition: opacity .3s ease, transform .3s ease, visibility 0s linear .3s;
+  }
+  .slide.active { opacity: 1; visibility: visible; transform: none; z-index: 2;
+                  transition: opacity .3s ease, transform .3s ease, visibility 0s; }
+  @media (prefers-reduced-motion: reduce) {
+    .slide { transition: none; transform: none; }
+    #progress { transition: none; }
+  }
+  .inner { width: min(1180px, 100%); margin: 0 auto; }
+
+  .eyebrow { font-family: var(--mono); font-size: 14px; letter-spacing: .18em;
+             text-transform: uppercase; color: var(--blue); margin-bottom: 18px; }
+  h1 { font-family: var(--display); font-weight: 700; letter-spacing: -.015em;
+       font-size: clamp(56px, 9vw, 128px); line-height: .95; text-wrap: balance; }
+  h2 { font-family: var(--display); font-weight: 700; letter-spacing: -.01em;
+       font-size: clamp(34px, 4.6vw, 58px); line-height: 1.04; text-wrap: balance;
+       margin-bottom: 26px; }
+  .lede { font-size: clamp(19px, 1.7vw, 24px); color: var(--muted); max-width: 62ch; }
+  .lede b, .quote b { color: var(--text); font-weight: 600; }
+  .quote { border-left: 3px solid var(--red); padding: 6px 0 6px 22px; margin-top: 40px;
+           font-size: clamp(19px, 1.8vw, 26px); max-width: 58ch; }
+  .quote .src { display: block; margin-top: 10px; font-family: var(--mono);
+                font-size: 13px; color: var(--dim); letter-spacing: .08em; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: start; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+  /* chips: the honesty system */
+  .chip { display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 700;
+          letter-spacing: .08em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .chip.live   { background: #E7EDE2; color: var(--green); }
+  .chip.real   { background: #E7EDE2; color: var(--green); }
+  .chip.mock   { background: #ECE9E3; color: var(--muted); border: 1px solid var(--line); }
+  .chip.stub   { background: #F2EAD6; color: var(--amber); }
+  .chip.proto  { background: #EAE5F0; color: var(--violet); }
+  .chip.pitch  { background: #F3E2DC; color: var(--red); }
+  .chip.solved { background: #E7EDE2; color: var(--green); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+          padding: 22px 24px; box-shadow: 0 1px 2px rgba(34,36,42,.04); }
+  .card h3 { font-family: var(--display); font-weight: 800; font-size: 20px; margin-bottom: 8px;
+             display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .card p { color: var(--muted); font-size: 16px; }
+  .card .mono, .mono { font-family: var(--mono); }
+
+  /* invoice mock (slide 2) */
+  .invoice { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+             padding: 26px 28px; font-size: 17px; box-shadow: 0 2px 6px rgba(34,36,42,.05); }
+  .invoice .head { display: flex; justify-content: space-between; align-items: baseline;
+                   border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 6px; }
+  .invoice .head b { font-family: var(--display); font-size: 19px; }
+  .invoice .head span { font-family: var(--mono); font-size: 13px; color: var(--dim); }
+  .frow { display: flex; justify-content: space-between; gap: 18px; padding: 11px 0;
+          border-bottom: 1px solid #EFECE6; }
+  .frow .k { color: var(--muted); }
+  .frow .v { font-family: var(--mono); font-size: 15.5px; text-align: right; }
+  .frow .ok::after { content: " ✓"; color: var(--green); }
+  .frow.bad { background: linear-gradient(90deg, transparent, rgba(168,68,50,.07));
+              border-bottom-color: rgba(168,68,50,.35); }
+  .frow.bad .k { color: var(--red); font-weight: 600; }
+  .frow.bad .v { color: var(--red); }
+  .invoice .note { margin-top: 14px; font-style: italic; color: var(--amber); font-size: 16px; }
+  .stat { border-left: 3px solid var(--line); padding-left: 20px; margin-bottom: 26px; }
+  .stat .n { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 3vw, 44px);
+             font-variant-numeric: tabular-nums; }
+  .stat .l { color: var(--muted); font-size: 16px; max-width: 34ch; }
+
+  /* agent lane map (slide 4) — same geometry as the live dashboard */
+  .amapwrap { background: var(--panel2); border-radius: 18px; padding: 26px 20px 10px;
+              margin: 26px 0 18px; }
+  .amap { width: 100%; height: auto; display: block; }
+  .amap .lane { fill: none; stroke: #DDD8CF; stroke-width: 2.5; }
+  .amap .nd circle { fill: var(--panel); stroke-width: 3.5; }
+  .amap .nd text { font-family: var(--mono); font-size: 13px; letter-spacing: .14em;
+                   text-anchor: middle; fill: var(--muted); }
+  .amap .nd .g { font-size: 24px; letter-spacing: 0; }
+  .amap .halo { fill: none; stroke-width: 2.5; opacity: .8;
+                transform-box: fill-box; transform-origin: center;
+                animation: dhalo 2.6s ease-out infinite; }
+  @keyframes dhalo { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.75); opacity: 0; } }
+  .amap .h2s { animation-delay: .9s; } .amap .h3s { animation-delay: 1.7s; }
+  @media (prefers-reduced-motion: reduce) { .amap .halo, .amap .amdot { display: none; } }
+  .agcap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+  .agcap div { font-size: 15px; color: var(--muted); }
+  .agcap b { display: block; font-family: var(--display); font-weight: 700; font-size: 19px;
+             margin-bottom: 4px; color: var(--text); }
+  .agcap .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 50%;
+                   margin-right: 7px; vertical-align: baseline; }
+
+  /* pipeline diagram (slide 4) */
+  .pipe { display: flex; align-items: stretch; gap: 0; margin: 34px 0 10px; }
+  .stage { flex: 1; min-width: 0; position: relative; padding: 20px 18px 18px;
+           background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  .stage + .stage { margin-left: 34px; }
+  .stage + .stage::before { content: "→"; position: absolute; left: -27px; top: 50%;
+                            transform: translateY(-50%); color: var(--dim); font-size: 22px; }
+  .stage .who { font-family: var(--display); font-weight: 800; font-size: 19px;
+                display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+  .stage .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .stage p { font-size: 14.5px; color: var(--muted); }
+  .stage.s-det  { border-top: 3px solid var(--teal); }   .s-det .dot { background: var(--teal); }
+  .stage.s-inv  { border-top: 3px solid var(--blue); }   .s-inv .dot { background: var(--blue); }
+  .stage.s-deb  { border-top: 3px solid var(--red); }
+  .stage.s-arb  { border-top: 3px solid var(--violet); } .s-arb .dot { background: var(--violet); }
+  .stage.s-hum  { border-top: 3px solid var(--text); }   .s-hum .dot { background: var(--text); }
+  .vs { display: flex; gap: 8px; align-items: center; margin-bottom: 7px; }
+  .vs .side { font-family: var(--display); font-weight: 800; font-size: 17px; }
+  .vs .r { color: var(--red); } .vs .g { color: var(--green); }
+  .buswrap { margin-top: 26px; }
+  .bus { border: 1px dashed var(--line); border-radius: 10px; padding: 12px 18px;
+         font-family: var(--mono); font-size: 14px; color: var(--muted);
+         display: flex; gap: 14px; align-items: center; }
+  .beat { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); flex: none;
+          animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .5; } }
+  @media (prefers-reduced-motion: reduce) { .beat { animation: none; } }
+  .offramp { margin-top: 14px; font-family: var(--mono); font-size: 14.5px; color: var(--green); }
+
+  /* debate slide */
+  .evstrip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 22px; }
+  .evline { font-family: var(--mono); font-size: 14px; color: var(--muted);
+            background: var(--panel); border-left: 3px solid var(--red); border-radius: 8px;
+            padding: 9px 13px; }
+  .evline.g { border-left-color: var(--green); }
+  .evline b { color: var(--text); font-weight: 600; }
+  .argue { border-radius: 14px; padding: 24px 26px; background: var(--panel); font-size: 18px; }
+  .argue.skeptic { border: 1px solid rgba(168,68,50,.4); }
+  .argue.advocate { border: 1px solid rgba(110,144,104,.45); }
+  .argue h3 { font-family: var(--display); font-weight: 800; font-size: 17px;
+              letter-spacing: .06em; margin-bottom: 12px; }
+  .argue.skeptic h3 { color: var(--red); } .argue.advocate h3 { color: var(--green); }
+  .verdictbar { margin-top: 26px; display: flex; gap: 22px; align-items: center;
+                background: var(--panel); border: 1px solid rgba(168,68,50,.45);
+                border-radius: 14px; padding: 20px 26px; }
+  .verdictbar .dec { font-family: var(--display); font-weight: 900; font-size: 40px;
+                     color: var(--red); letter-spacing: .02em; }
+  .verdictbar .act { color: var(--muted); font-size: 16.5px; max-width: 62ch; }
+  .verdictbar .act b { color: var(--text); }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  th { font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+       color: var(--dim); text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  td { padding: 13px 14px; border-bottom: 1px solid #EFECE6; vertical-align: top; }
+  td.mono { font-size: 15px; color: var(--muted); }
+  tr.hl td { background: rgba(77,159,255,.06); }
+  .vd { font-family: var(--display); font-weight: 800; white-space: nowrap; }
+  .vd.block { color: var(--red); } .vd.auto { color: var(--green); } .vd.verify { color: var(--amber); }
+
+  .footline { margin-top: 30px; font-size: 16.5px; color: var(--muted); max-width: 72ch; }
+  .footline b { color: var(--text); }
+
+  /* close */
+  .bigclose { font-family: var(--display); font-weight: 700; letter-spacing: -.015em;
+              font-size: clamp(40px, 6vw, 84px); line-height: 1.02; text-wrap: balance; }
+  .bigclose .dead { color: var(--red); }
+  .bigclose .ans { color: var(--green); }
+  .linkrow { margin-top: 44px; display: flex; gap: 34px; flex-wrap: wrap;
+             font-family: var(--mono); font-size: 15px; color: var(--muted); }
+  .linkrow a { color: var(--blue); text-decoration: none; }
+  .linkrow a:hover, .linkrow a:focus-visible { text-decoration: underline; }
+
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    .slide { position: static; opacity: 1; visibility: visible; transform: none;
+             padding: 72px 24px 24px; min-height: 100vh; }
+    .cols, .cols3, .evstrip { grid-template-columns: 1fr; }
+    .pipe { flex-direction: column; }
+    .stage + .stage { margin-left: 0; margin-top: 30px; }
+    .stage + .stage::before { content: "↓"; left: 50%; top: -26px; transform: translateX(-50%); }
+    .navhint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div class="rail">
+  <span class="wordmark">TRUST LAYER</span>
+  <span class="ctx">Embedded Finance Build Day · Stockholm</span>
+  <span id="counter">1 / 13</span>
+</div>
+<div class="navhint">
+  <button id="prev" aria-label="Previous slide">←</button>
+  <button id="next" aria-label="Next slide">→</button>
+</div>
+
+<main>
+
+<!-- 1 · title -->
+<section class="slide active"><div class="inner">
+  <div class="eyebrow">Embedded Finance Build Day · August 25 2026</div>
+  <h1>Trust Layer</h1>
+  <p class="lede" style="margin-top:26px">Adversarial multi-agent verification for B2B payment fraud.
+     We intercept every incoming invoice and run it through our agentic OS.
+     At the end, you get a score, and a human decides.</p>
+</div></section>
+
+<!-- 5 · evidence tools -->
+<section class="slide"><div class="inner">
+  <h2>Six independent sources.<br>One confident decision.</h2>
+  <div class="cols3">
+    <div class="card"><h3>Zwapgrid <span class="chip live">LIVE DATA</span></h3>
+      <p>Invoice and payment history, pulled from Zwapgrid's integrated ERP systems.
+      Reports back to Zwapgrid once the invoice has been paid through Open Payments.</p></div>
+    <div class="card"><h3>Bankgirot <span class="chip real">VERIFIED SOURCE</span></h3>
+      <p>Account and payment validation: checks whether an account number is valid, then
+      looks up who owns it in the public register.</p></div>
+    <div class="card"><h3>Account Registry <span class="chip mock">SIMULATED</span></h3>
+      <p>Account ownership lookup, to understand the company behind the account.</p></div>
+    <div class="card"><h3>Open Payments <span class="chip live">PAYMENT NETWORK</span></h3>
+      <p>Live payment execution: initiates and pays the invoice pulled in through Zwapgrid
+      and its integrated ERP systems, a real payment, not a simulation.</p></div>
+    <div class="card"><h3>Bolagsverket <span class="chip stub">STUB READY</span></h3>
+      <p>Business identity checks: company status, address and registration from official
+      records. Free public API, we're still waiting on access.</p></div>
+    <div class="card"><h3>Relationship Intelligence <span class="chip mock">ENRICHED INSIGHTS</span></h3>
+      <p>Background signals and past dealings: public sources combined with our own
+      records of every past invoice from this supplier.</p></div>
+  </div>
+  <p class="footline">Six independent sources means no single wrong answer sinks the case:
+    the pipeline reaches a decision faster, with more confidence, and a clear trail of why.</p>
+</div></section>
+
+<!-- 4 · the agent loop -->
+<section class="slide"><div class="inner">
+  <h2>The claim goes on trial.</h2>
+  <div class="amapwrap">
+    <svg class="amap" viewBox="0 0 1000 240" aria-label="Agent pipeline map">
+      <path class="lane" d="M 24 118 H 112"/>
+      <path class="lane" d="M 188 118 H 342"/>
+      <path class="lane" d="M 414 104 C 472 62, 512 54, 566 54"/>
+      <path class="lane" d="M 414 132 C 472 174, 512 182, 566 182"/>
+      <path class="lane" d="M 634 54 C 694 54, 730 70, 772 104"/>
+      <path class="lane" d="M 634 182 C 694 182, 730 166, 772 132"/>
+      <path class="lane" d="M 844 118 H 912"/>
+      <path class="lane" d="M 150 156 C 150 226, 700 226, 926 152" stroke-dasharray="5 7"/>
+      <g class="nd" transform="translate(150,118)">
+        <circle class="halo" r="34" stroke="#5F8F89"/><circle r="34" stroke="#5F8F89"/>
+        <text class="g" y="8" fill="#5F8F89">◆</text><text y="60">DETECTOR</text></g>
+      <g class="nd" transform="translate(378,118)">
+        <circle class="halo h2s" r="34" stroke="#5E86A8"/><circle r="34" stroke="#5E86A8"/>
+        <text class="g" y="8" fill="#5E86A8">⌕</text><text y="60">INVESTIGATOR</text></g>
+      <g class="nd" transform="translate(600,54)">
+        <circle class="halo h3s" r="30" stroke="#A84432"/><circle r="30" stroke="#A84432"/>
+        <text class="g" y="8" fill="#A84432">☠</text><text y="54">SKEPTIC</text></g>
+      <g class="nd" transform="translate(600,182)">
+        <circle class="halo h3s" r="30" stroke="#6E9068"/><circle r="30" stroke="#6E9068"/>
+        <text class="g" y="8" fill="#6E9068">✓</text><text y="54">ADVOCATE</text></g>
+      <g class="nd" transform="translate(808,118)">
+        <circle class="halo h2s" r="34" stroke="#8B7A9B"/><circle r="34" stroke="#8B7A9B"/>
+        <text class="g" y="8" fill="#8B7A9B">⚖</text><text y="60">ARBITER</text></g>
+      <g class="nd" transform="translate(946,118)">
+        <circle r="34" stroke="#22242A"/>
+        <text class="g" y="7" fill="#22242A" style="font-family:var(--display);font-size:15px;font-weight:700">HUMAN</text>
+        <text y="60">DECIDES</text></g>
+      <!-- ambient pulses riding the lanes -->
+      <circle class="amdot" opacity="0" r="5.5" fill="#5E86A8">
+        <animateMotion dur="3.2s" repeatCount="indefinite" path="M 188 118 H 342"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" repeatCount="indefinite"/></circle>
+      <circle class="amdot" opacity="0" r="5" fill="#A84432">
+        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 104 C 472 62, 512 54, 566 54"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" begin="1.1s" repeatCount="indefinite"/></circle>
+      <circle class="amdot" opacity="0" r="5" fill="#6E9068">
+        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 132 C 472 174, 512 182, 566 182"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" begin="1.1s" repeatCount="indefinite"/></circle>
+      <circle class="amdot" opacity="0" r="5" fill="#8B7A9B">
+        <animateMotion dur="3.2s" begin="2.2s" repeatCount="indefinite" path="M 634 54 C 694 54, 730 70, 772 104"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" begin="2.2s" repeatCount="indefinite"/></circle>
+    </svg>
+  </div>
+  <div class="agcap">
+    <div><b><span class="swatch" style="background:#5F8F89"></span>Detector</b>
+      Deterministic diff, no LLM. The only agent allowed to say "nothing happened".</div>
+    <div><b><span class="swatch" style="background:#5E86A8"></span>Investigator</b>
+      Works six evidence sources. Gathers facts. Never concludes.</div>
+    <div><b><span class="swatch" style="background:#A84432"></span>Skeptic</b>
+      Briefed to argue fraud. Same evidence, hostile reading.</div>
+    <div><b><span class="swatch" style="background:#6E9068"></span>Advocate</b>
+      Briefed to defend the supplier relationship. Attacks weak fraud claims.</div>
+    <div><b><span class="swatch" style="background:#8B7A9B"></span>Arbiter</b>
+      Weighs the debate into a schema-enforced verdict and a safe next step.</div>
+  </div>
+  <div class="offramp">↳ no claims? the invoice never enters the loop: auto-approved in &lt;1s</div>
+  <div class="buswrap"><div class="bus"><span class="beat"></span>
+    every step emits a heartbeat → the live monitor the audience watches → recorded, replayable runs</div></div>
+</div></section>
+
+</main>
+
+<script>
+"use strict";
+const slides = [...document.querySelectorAll(".slide")];
+let idx = Math.min(Math.max((parseInt(location.hash.slice(1), 10) || 1) - 1, 0), slides.length - 1);
+
+function show(i) {
+  idx = Math.min(Math.max(i, 0), slides.length - 1);
+  slides.forEach((s, k) => s.classList.toggle("active", k === idx));
+  document.getElementById("counter").textContent = `${idx + 1} / ${slides.length}`;
+  document.getElementById("progress").style.width = `${((idx + 1) / slides.length) * 100}%`;
+  history.replaceState(null, "", `#${idx + 1}`);
+}
+
+document.getElementById("next").addEventListener("click", () => show(idx + 1));
+document.getElementById("prev").addEventListener("click", () => show(idx - 1));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); show(idx + 1); }
+  else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); show(idx - 1); }
+  else if (e.key === "Home") show(0);
+  else if (e.key === "End") show(slides.length - 1);
+});
+show(idx);
+</script>
+</body>
+</html>

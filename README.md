@@ -6,7 +6,7 @@ each supplier's history; any change, like a new bank account or a duplicate rece
 is argued out by AI agents (Investigator, Skeptic vs Advocate, Arbiter) before a human
 decides. Approved invoices are paid for real through Open Payments.
 
-**Presentation:** _link coming soon_ <!-- TODO: replace with the presentation URL -->
+**Presentation:** https://eddienevander.github.io/Embedded-Finance-Build-Day-demo/
 
 ## Requirements
 
