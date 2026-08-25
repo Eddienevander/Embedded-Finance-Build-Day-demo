@@ -12,6 +12,7 @@ from app.tools.zwapgrid_real import (
     ZwapgridPaymentHistoryTool,
     _extract_bank_account,
     _format_orgnr,
+    _invoice_amount,
     _to_invoice,
 )
 
@@ -76,6 +77,35 @@ def test_to_invoice_maps_the_documented_example():
     assert invoice.due_date == date(2024, 2, 15)
     assert invoice.contact_email == "contact@acme.se"
     assert invoice.raw_note == "Payment via bank transfer to account ending in 1234"
+
+
+def test_invoice_amount_prefers_payable_amount_when_populated():
+    assert _invoice_amount(EXAMPLE_ITEM["legalMonetaryTotal"]) == {
+        "amount": 18750.00, "currencyId": "SEK",
+    }
+
+
+def test_invoice_amount_falls_back_to_tax_inclusive_when_payable_is_zero():
+    # Confirmed live against the real Fortnox-via-Zwapgrid sandbox: this
+    # connector leaves payableAmount (and totalBalanceAmount) at 0.0 and only
+    # populates taxInclusiveAmount with the real total.
+    totals = {
+        "payableAmount": {"amount": 0.0, "currencyId": "SEK"},
+        "taxInclusiveAmount": {"amount": 2687.5, "currencyId": "SEK"},
+    }
+    assert _invoice_amount(totals) == {"amount": 2687.5, "currencyId": "SEK"}
+
+
+def test_invoice_amount_stays_zero_if_nothing_is_populated():
+    totals = {"payableAmount": {"amount": 0.0, "currencyId": "SEK"}}
+    assert _invoice_amount(totals) == {"amount": 0.0, "currencyId": "SEK"}
+
+
+def test_to_invoice_uses_tax_inclusive_fallback_for_real_sandbox_shape():
+    item = copy.deepcopy(EXAMPLE_ITEM)
+    item["legalMonetaryTotal"]["payableAmount"] = {"amount": 0.0, "currencyId": "SEK"}
+    invoice = _to_invoice(item)
+    assert invoice.amount_sek == 18750.00  # taxInclusiveAmount, unchanged in the fixture
 
 
 class _StubZwapgridClient:

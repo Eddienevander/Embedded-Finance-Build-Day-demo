@@ -67,11 +67,27 @@ def _extract_bank_account(notes: list[dict]) -> str | None:
     return None
 
 
+def _invoice_amount(totals: dict) -> dict:
+    """Prefer payableAmount (the docs' example has it populated and matching
+    the invoice total), but confirmed live against the real Fortnox-via-
+    Zwapgrid sandbox: this connector leaves payableAmount AND
+    totalBalanceAmount at 0.0 and puts the real total only in
+    taxInclusiveAmount. Fall back to that rather than silently reporting a
+    0 SEK invoice."""
+    payable = totals["payableAmount"]
+    if payable.get("amount"):
+        return payable
+    tax_inclusive = totals.get("taxInclusiveAmount")
+    if tax_inclusive and tax_inclusive.get("amount"):
+        return tax_inclusive
+    return payable  # genuinely 0 — don't fabricate a number
+
+
 def _to_invoice(item: dict) -> Invoice:
     supplier_party = item["accountingSupplierParty"]
     party = supplier_party["party"]
     notes = item.get("notes", [])
-    payable = item["legalMonetaryTotal"]["payableAmount"]
+    payable = _invoice_amount(item["legalMonetaryTotal"])
 
     return Invoice(
         id=item["id"],
