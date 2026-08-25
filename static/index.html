@@ -120,6 +120,7 @@
   .chip.under_review { background: #16283d; color: var(--blue); }
   .chip.blocked { background: #3d1d1d; color: var(--red); }
   .chip.invalid, .chip.received { background: #262c36; color: var(--muted); }
+  .chip.fetched { background: #16283d; color: var(--amber); }
   .drawer { border-top: 1px solid var(--border); margin-top: auto; flex: none; }
   .drawer summary {
     padding: 10px 14px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
@@ -248,6 +249,11 @@
              color: var(--teal); cursor: pointer; }
   #btn-pay:hover:not(:disabled) { background: #123a35; }
   #btn-pay:disabled { opacity: .7; cursor: default; }
+  #btn-run-verification { width: 100%; margin-top: 10px; padding: 11px; font-size: 15px; font-weight: 700;
+                          border-radius: 8px; border: 1px solid var(--blue); background: #16283d;
+                          color: var(--blue); cursor: pointer; }
+  #btn-run-verification:hover:not(:disabled) { background: #1c334d; }
+  #btn-run-verification:disabled { opacity: .7; cursor: default; }
   .hbtns button:disabled { opacity: .45; cursor: default; }
   .human-note { font-size: 14px; color: var(--muted); }
   .empty { color: var(--muted); font-size: 14px; padding: 0 14px; }
@@ -415,7 +421,7 @@ async function syncZwapgrid() {
       out.textContent = `Error: ${body.detail || res.statusText}`;
       return;
     }
-    out.textContent = `Fetched ${body.fetched}, ${body.new} new, ${body.skipped_already_seen} already seen.`;
+    out.textContent = `Fetched ${body.fetched}, ${body.new} new (staged — select one to run verification), ${body.skipped_already_seen} already seen.`;
     refreshInvoices();
     refreshCases();
   } catch (e) {
@@ -504,7 +510,7 @@ async function refreshCases() {
 // ---------- left panel: invoice inbox ----------
 const STATUS_LABEL = {
   auto_approved: "AUTO-APPROVED", under_review: "UNDER REVIEW", blocked: "BLOCKED",
-  approved: "APPROVED", invalid: "QUARANTINED", received: "RECEIVED",
+  approved: "APPROVED", invalid: "QUARANTINED", received: "RECEIVED", fetched: "FETCHED",
 };
 
 let _invoiceRefreshTimer = null;
@@ -759,11 +765,14 @@ const INVOICE_NOTE = {
   auto_approved: "Auto-approved: matched the supplier baseline on every field. No verification case.",
   invalid: "Quarantined as a placeholder/test record. Not sent to verification.",
   received: "Received. Awaiting processing.",
+  fetched: "Fetched from Zwapgrid, not yet checked. Click Run verification to send it through the intake pipeline.",
 };
 
 function invoiceBlock(inv) {
   const note = !inv.case_ids.length && INVOICE_NOTE[inv.status]
     ? `<div class="human-note" style="margin-top:6px">${INVOICE_NOTE[inv.status]}</div>` : "";
+  const runBtn = inv.status === "fetched"
+    ? `<button id="btn-run-verification" onclick="processInvoice('${esc(inv.id)}')">▶ Run verification</button>` : "";
   return `
     <div class="vc-section"><h3>Invoice · ${esc(inv.id)}
         <span class="chip ${esc(inv.status)}" style="float:right">${STATUS_LABEL[inv.status] || esc(inv.status)}</span></h3>
@@ -775,6 +784,7 @@ function invoiceBlock(inv) {
           ${esc(inv.bank_account)} · ref ${esc(inv.reference)} · ${esc(inv.contact_email || "no contact email")}</span>
         ${inv.raw_note ? `<br><i style="color:var(--muted)">"${esc(inv.raw_note)}"</i>` : ""}
         ${note}
+        ${runBtn}
       </div></div>`;
 }
 
@@ -895,6 +905,28 @@ async function payCase(caseId) {
   if (selectedCase === c.id) renderDetail();
 }
 window.payCase = payCase;
+
+async function processInvoice(invoiceId) {
+  const btn = document.getElementById("btn-run-verification");
+  if (btn) { btn.disabled = true; btn.textContent = "Running…"; }
+  const res = await fetch(`/invoices/${invoiceId}/process`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "failed to process invoice" }));
+    alert(err.detail || "failed to process invoice");
+    if (btn) { btn.disabled = false; btn.textContent = "▶ Run verification"; }
+    return;
+  }
+  const body = await res.json();
+  selectedInvoice = invoiceId;
+  if (body.case_ids && body.case_ids.length) {
+    selectedCase = body.case_ids[body.case_ids.length - 1];
+    resetMonitor(selectedCase);
+    await refreshCases();
+  }
+  await refreshInvoices();
+  renderDetail();
+}
+window.processInvoice = processInvoice;
 window.rerunCase = rerunCase; window.setMode = setMode;
 
 // ---------- websocket ----------

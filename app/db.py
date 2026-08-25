@@ -121,6 +121,10 @@ class Database:
     def invoice_exists(self, invoice_id: str) -> bool:
         return self._exec("SELECT 1 FROM invoices WHERE id=?", (invoice_id,)).fetchone() is not None
 
+    def get_invoice_status(self, invoice_id: str) -> str | None:
+        row = self._exec("SELECT status FROM invoices WHERE id=?", (invoice_id,)).fetchone()
+        return row["status"] if row else None
+
     def get_invoice(self, invoice_id: str) -> Invoice | None:
         row = self._exec("SELECT * FROM invoices WHERE id=?", (invoice_id,)).fetchone()
         if row is None:
