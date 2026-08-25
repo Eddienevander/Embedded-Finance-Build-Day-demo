@@ -34,7 +34,7 @@ ZWAPGRID_CONSENT_ID: str | None = os.getenv("ZWAPGRID_CONSENT_ID")
 # sandbox has returned a real 429) and how often /demo/zwapgrid-sync will
 # actually call out, in seconds (repeat clicks are refused with 429 instead
 # of hammering Zwapgrid again).
-ZWAPGRID_SYNC_LIMIT: int = int(os.getenv("ZWAPGRID_SYNC_LIMIT", "10"))
+ZWAPGRID_SYNC_LIMIT: int = int(os.getenv("ZWAPGRID_SYNC_LIMIT", "20"))
 ZWAPGRID_SYNC_COOLDOWN_SECONDS: float = float(os.getenv("ZWAPGRID_SYNC_COOLDOWN_SECONDS", "30"))
 
 # Startup default for the dashboard's "real integrations" toggle (see
