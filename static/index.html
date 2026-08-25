@@ -350,6 +350,10 @@
       <button onclick="syncZwapgrid()">⇄ Sync invoices from Zwapgrid</button>
     </div>
     <div id="zwapgrid-sync-result" class="human-note" style="padding: 0 14px 6px"></div>
+    <div class="modes">
+      <button id="tab-open" class="active" onclick="setInboxTab('open')">Inbox</button>
+      <button id="tab-history" onclick="setInboxTab('history')">History</button>
+    </div>
     <div id="inbox"><div class="empty">No invoices yet. Sync from Zwapgrid or open the demo drawer.</div></div>
     <details class="drawer">
       <summary>Demo scenarios</summary>
@@ -669,15 +673,45 @@ async function refreshInvoices() {
   renderInbox();
 }
 
+// Inbox = needs attention; History = handled (decided, auto-approved, paid).
+let inboxTab = "open";
+const OPEN_STATUSES = ["fetched", "received", "under_review"];
+
+function setInboxTab(tab) {
+  inboxTab = tab;
+  $("#tab-open").classList.toggle("active", tab === "open");
+  $("#tab-history").classList.toggle("active", tab === "history");
+  renderInbox();
+}
+window.setInboxTab = setInboxTab;
+
+function invoicePaid(inv) {
+  return inv.case_ids.some(id => {
+    const c = cases.get(id);
+    return c && c.payment_status && c.payment_status !== "failed";
+  });
+}
+
 function renderInbox() {
   const box = $("#inbox");
-  if (!invoices.size) {
-    box.innerHTML = '<div class="empty">No invoices yet. Sync from Zwapgrid or open the demo drawer.</div>';
+  const rows = [...invoices.values()];
+  const open = rows.filter(r => OPEN_STATUSES.includes(r.status));
+  const done = rows.filter(r => !OPEN_STATUSES.includes(r.status));
+  $("#tab-open").textContent = `Inbox${open.length ? ` (${open.length})` : ""}`;
+  $("#tab-history").textContent = `History${done.length ? ` (${done.length})` : ""}`;
+  const shown = inboxTab === "open" ? open : done;
+  if (!shown.length) {
+    box.innerHTML = inboxTab === "open"
+      ? '<div class="empty">Inbox clear. Sync from Zwapgrid or open the demo drawer.</div>'
+      : '<div class="empty">Nothing handled yet.</div>';
     return;
   }
   box.innerHTML = "";
-  for (const inv of invoices.values()) {
-    const chip = `<span class="chip ${esc(inv.status)}">${STATUS_LABEL[inv.status] || esc(inv.status)}</span>`;
+  for (const inv of shown) {
+    const paid = invoicePaid(inv);
+    const chip = paid
+      ? '<span class="chip approved">⚡ PAID</span>'
+      : `<span class="chip ${esc(inv.status)}">${STATUS_LABEL[inv.status] || esc(inv.status)}</span>`;
     const caseMark = inv.case_ids.length ? ` · ${inv.case_ids.length} case` : "";
     const noAccountMark = hasGiroAccount(inv.bank_account) ? "" :
       ` · <span style="color:var(--amber)" title="No bankgiro/plusgiro on file — can't pay via Open Payments without confirming one">⚠ no account</span>`;
