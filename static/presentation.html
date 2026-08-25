@@ -282,7 +282,8 @@
     <div class="stage s-arb"><div class="who"><span class="dot"></span>Arbiter</div>
       <p>Weighs the debate into a schema-enforced verdict: approve · block · verify, plus a safe next action.</p></div>
     <div class="stage s-hum"><div class="who"><span class="dot"></span>Human</div>
-      <p>Approves or blocks with the full evidence chain, both arguments and the verdict in front of them.</p></div>
+      <p>Approves or blocks with the full evidence in front of them — and approval
+      <b style="color:var(--text)">executes the payment for real</b> over Open Payments PIS.</p></div>
   </div>
   <div class="offramp">↳ no claims? the invoice never enters the loop: auto-approved in &lt;1s</div>
   <div class="buswrap"><div class="bus"><span class="beat"></span>
@@ -299,8 +300,9 @@
       <p>Mod-10 check-digit validation offline (a failing number was never issued). Owner lookup parses public data — Bankgirot has no API.</p></div>
     <div class="card"><h3>account_registry <span class="chip pitch">THE PITCH</span></h3>
       <p>"Who owns this account?" Mocked — because Sweden has no such registry. Norway does. More in a moment.</p></div>
-    <div class="card"><h3>open_payments <span class="chip stub">STUB READY</span></h3>
-      <p>Account-to-account history adapter behind the same interface, OAuth2 placeholders in. Wire-in is a config task.</p></div>
+    <div class="card"><h3>open_payments <span class="chip live">LIVE API</span></h3>
+      <p>Real PSD2 payment execution: an approved case pays out through the
+      Payment Initiation API (swedish-giro + decoupled SCA, sandbox).</p></div>
     <div class="card"><h3>bolagsverket <span class="chip stub">STUB READY</span></h3>
       <p>Company status, address, registration by orgnr. Free public API; onboarding registration pending.</p></div>
     <div class="card"><h3>web_intel + invoice_archive <span class="chip mock">MOCK / REAL</span></h3>
@@ -328,14 +330,16 @@
         burning a minute of agents.</p>
     </div>
     <div class="card">
-      <h3>Open Payments <span class="chip stub">PLACEHOLDER</span></h3>
-      <p style="margin-bottom:12px">The payment-history adapter is built behind the same
-        <span class="mono">EvidenceTool</span> interface with OAuth2 client-credential
-        placeholders. The mock serves Open Payments-shaped history today; the live wiring
-        is a credentials task, not an architecture task.</p>
-      <p><b style="color:var(--text)">Why it matters:</b> bank-side payment history is the
-        strongest single signal in the account-swap case — "30 payments to the old account,
-        0 to the new one" is what the fraudster cannot fake.</p>
+      <h3>Open Payments <span class="chip live">LIVE</span></h3>
+      <p style="margin-bottom:12px">Real PSD2 Payment Initiation: OAuth2 client credentials,
+        a <span class="mono">swedish-giro</span> payment (bankgiro-routed — every supplier
+        account here already is one), decoupled SCA that finalises in sandbox, and status
+        polled to settlement.</p>
+      <p style="margin-bottom:12px"><b style="color:var(--text)">Why it matters:</b> the loop
+        closes. A verdict is not a report — an approved case <b style="color:var(--text)">
+        actually pays</b>, and a blocked one actually does not.</p>
+      <p>Stated gap: no write-back to the supplier's own accounting system ("paid" lives in
+        our ledger; Zwapgrid's API is read/create-only — verified, not guessed).</p>
     </div>
   </div>
 </div></section>
@@ -436,7 +440,7 @@
       arbiter cannot return prose, only a valid verdict.</p></div>
     <div class="card"><h3>Deterministic first</h3><p>The detector and quarantine are plain code.
       LLMs argue about evidence; they never gatekeep intake.</p></div>
-    <div class="card"><h3>25 tests · 1 command</h3><p><span class="mono">./run.sh</span> on a clean
+    <div class="card"><h3>29 tests · 1 command</h3><p><span class="mono">./run.sh</span> on a clean
       machine: sync, seed, pre-flight, serve. No frameworks, no build step.</p></div>
   </div>
 </div></section>
@@ -477,8 +481,9 @@
     <div class="card"><h3>Out-of-band verification <span class="chip stub">PLACEHOLDER</span></h3>
       <p>One click on a blocked case emails the supplier's previously known contact for
       confirmation — the arbiter already names the safe channel.</p></div>
-    <div class="card"><h3>Open Payments live <span class="chip stub">PLACEHOLDER</span></h3>
-      <p>Bank-side history through the stubbed adapter — the strongest signal, one credential away.</p></div>
+    <div class="card"><h3>Production SCA flow <span class="chip stub">PLACEHOLDER</span></h3>
+      <p>Sandbox uses the decoupled flow that auto-finalises; production payment execution
+      needs the redirect flow — a real human, real BankID, a callback.</p></div>
     <div class="card"><h3>Terms &amp; new-supplier drift <span class="chip live">LIVE TODAY</span></h3>
       <p>terms_changed and new_supplier claims already flow through the same trial.</p></div>
     <div class="card"><h3>ERP cross-checks <span class="chip stub">PLACEHOLDER</span></h3>
