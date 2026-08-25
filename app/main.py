@@ -252,28 +252,37 @@ async def pay_case(case_id: str) -> dict:
 
 @app.get("/demo/payments")
 async def list_executed_payments() -> dict:
-    """Every payment we've executed, cross-checked live against Open
-    Payments' own status endpoint — proof it actually exists there, not just
-    a status string cached in our local case record."""
+    """Every payment we've executed, cross-checked live against two
+    independent sources: Open Payments' own status endpoint (did the payment
+    rail settle it), and Zwapgrid's single-invoice GET (does the connected
+    accounting system's own reconciliation agree — a read, since Zwapgrid's
+    Accounting API has no write-back to push our confirmation into)."""
     db = get_db()
-    client = OpenPaymentsPISClient()
+    op_client = OpenPaymentsPISClient()
+    zwapgrid_client = ZwapgridRealTool()
     results = []
     for case in CASES.values():
         if not case.payment_id:
             continue
         invoice = db.get_invoice(case.claim.invoice_id)
         try:
-            live_status = await client.get_payment_status(case.payment_id)
+            live_status = await op_client.get_payment_status(case.payment_id)
             error = None
         except Exception as e:
             live_status = None
             error = f"{type(e).__name__}: {e}"
+        try:
+            zwapgrid_status = await zwapgrid_client.get_invoice_payment_status(case.claim.invoice_id)
+        except Exception:
+            zwapgrid_status = None  # e.g. ZWAPGRID_CONSENT_ID not set — not this endpoint's concern
         results.append({
             "case_id": case.id,
             "payment_id": case.payment_id,
             "recorded_status": case.payment_status,
             "live_status": live_status,
             "error": error,
+            "zwapgrid_status": zwapgrid_status["status"] if zwapgrid_status else None,
+            "zwapgrid_settlement_date": zwapgrid_status["settlement_date"] if zwapgrid_status else None,
             "invoice_id": case.claim.invoice_id,
             "supplier_name": invoice.supplier_name if invoice else None,
             "amount_sek": invoice.amount_sek if invoice else None,
