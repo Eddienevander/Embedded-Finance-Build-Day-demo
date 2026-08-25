@@ -34,6 +34,17 @@ TODO(venue):
     over _extract_bank_account's notes-regex fallback.
   - Decide a polling cadence and call this on a schedule (or on-demand before
     financing decisions) — the API is polling-only, there's no push.
+
+No write-back, confirmed against the live OpenAPI spec (docs.zwapgrid.com),
+not guessed: the entire supplier-invoice surface is
+GET /consents/{consentId}/supplierinvoices (list), POST .../supplierinvoices
+(create), GET .../supplierinvoices/{id} (single) — no PATCH/PUT anywhere. We
+cannot push "this invoice is now paid" into the connected accounting system.
+What the single-invoice GET *does* return is a `paymentStatus` (UNPAID /
+PARTLY_PAID / FULLY_PAID) + `settlementDate` that reflects whatever the
+accounting system's own reconciliation has already decided — see
+get_invoice_payment_status. That's a read of the buyer's books agreeing
+payment happened, not something we write.
 """
 
 import re
@@ -136,6 +147,31 @@ class ZwapgridRealTool:
                 page += 1
 
         return invoices
+
+    async def get_invoice_payment_status(self, invoice_id: str) -> dict | None:
+        """GET the single supplier invoice and read back its paymentStatus —
+        the accounting system's own view of whether it's paid, not ours.
+        Returns None if the id isn't a real Zwapgrid invoice — e.g. a
+        scripted demo invoice that never came from Zwapgrid (confirmed live:
+        Fortnox returns 400 for an id it doesn't recognise, not the 404 the
+        API spec's docs suggest) — or if the connected accounting system
+        doesn't support this operation (501, per the API spec)."""
+        if not config.ZWAPGRID_CONSENT_ID:
+            raise RuntimeError("ZWAPGRID_CONSENT_ID is not set")
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{config.ZWAPGRID_BASE_URL}/consents/{config.ZWAPGRID_CONSENT_ID}"
+                f"/supplierinvoices/{invoice_id}",
+                headers=self._headers(),
+            )
+            if resp.status_code in (400, 404, 501):
+                return None
+            resp.raise_for_status()
+            status = resp.json().get("paymentStatus") or {}
+            return {
+                "status": status.get("status"),
+                "settlement_date": status.get("settlementDate"),
+            }
 
 
 class ZwapgridPaymentHistoryTool(EvidenceTool):
