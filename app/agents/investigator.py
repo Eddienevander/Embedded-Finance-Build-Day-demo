@@ -26,7 +26,9 @@ You may call several tools in parallel. When you have finished gathering, report
 the evidence bundle: one entry per finding, each tagged as supporting "fraud",
 "legit" or "neutral" with your confidence. Every finding must be a fact you
 observed in a tool result, not an inference. Each finding is ONE short plain
-sentence, at most 18 words.
+sentence, at most 18 words, phrased as a business fact an accounts-payable
+clerk can act on. Name sources in plain words (the company register, our
+payment history, the supplier's website), never by tool name.
 """ + STYLE_RULES
 
 

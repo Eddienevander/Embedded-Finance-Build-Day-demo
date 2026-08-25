@@ -48,6 +48,19 @@ def set_real_integrations(enabled: bool) -> bool:
     return _real_integrations
 
 
+def cancel_running_cases() -> int:
+    """Cancel every in-flight case task. Without this, a demo reset leaves
+    zombie pipelines running: they keep calling the model, re-save their case
+    into the fresh database, and their heartbeats resurrect the case in open
+    browsers while the server no longer knows it (so Decide/Block 404s)."""
+    cancelled = 0
+    for task in list(_TASKS):
+        if not task.done():
+            task.cancel()
+            cancelled += 1
+    return cancelled
+
+
 def load_persisted_cases(db: Database) -> None:
     for case in db.list_cases():
         CASES.setdefault(case.id, case)

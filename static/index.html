@@ -269,14 +269,18 @@
   .pts li::before { content: "·"; position: absolute; left: 2px; color: var(--muted);
                     font-weight: 700; }
   .pts li.lead { font-weight: 600; }
-  details.xp summary { cursor: pointer; list-style: none; }
-  details.xp summary::-webkit-details-marker { display: none; }
-  details.xp summary::after { content: "⌄ more"; font-size: 11.5px; color: var(--blue);
-                              margin-left: 6px; white-space: nowrap; letter-spacing: .04em; }
-  details.xp[open] summary::after { content: "⌃ less"; }
-  details.xp .xf { display: none; }
-  details.xp[open] .xs { display: none; }
-  details.xp[open] .xf { display: inline; }
+  .morelink { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600;
+              color: var(--blue); cursor: pointer; letter-spacing: .02em; }
+  .morelink:hover { text-decoration: underline; }
+  .tm-section { margin-bottom: 16px; }
+  .tm-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .14em;
+                   color: var(--muted); margin-bottom: 8px; }
+  .tm-section p, .tm-section li { font-size: 15.5px; line-height: 1.6; }
+  .tm-section ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .tm-section li { padding-left: 16px; position: relative; }
+  .tm-section li::before { content: "·"; position: absolute; left: 2px; color: var(--muted);
+                           font-weight: 700; }
+  .tm-section li.lead { font-weight: 600; }
   .arg { border-radius: 8px; padding: 10px 12px; font-size: 15px; line-height: 1.5; background: var(--panel2); }
   .arg.skeptic { border: 1px solid #E3C6BD; } .arg.advocate { border: 1px solid #CBD9C5; }
   .arg h4 { font-size: 13px; margin-bottom: 5px; }
@@ -324,12 +328,21 @@
 <body>
 <header>
   <h1>Trust Layer</h1>
-  <span class="sub">adversarial multi-agent verification · Bergström Bygg AB</span>
+  <span class="sub">adversarial multi-agent verification</span>
   <button id="btn-real-integrations" onclick="toggleRealIntegrations()" title="Swap payment_history (and future adapters) between seeded mock data and live APIs: Zwapgrid today, Open Payments later">○ Seeded data</button>
   <button id="btn-payments" onclick="openPaymentsModal()" title="Payments executed via Open Payments, cross-checked live against their status API">💳 Payments</button>
   <span id="conn" class="conn down">connecting…</span>
 </header>
 
+<div id="text-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closeTextModal()">
+  <div class="modal" style="width: min(620px, 92vw)">
+    <div class="modal-head">
+      <h2 id="text-modal-title"></h2>
+      <button onclick="closeTextModal()">✕</button>
+    </div>
+    <div id="text-modal-body" class="modal-body" style="padding-top: 16px"></div>
+  </div>
+</div>
 <div id="payments-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closePaymentsModal()">
   <div class="modal">
     <div class="modal-head">
@@ -487,21 +500,33 @@ function hasGiroAccount(account) {
   return /\d{2,4}-\d{4,7}/.test(account || "");
 }
 
-// Short first, depth on demand: a bullet longer than `cut` renders truncated
-// with a native <details> that swaps in the full text on click (no duplication).
+// Summary on the card, detail in a modal: clip() renders the visible
+// summary; the card's "Full …" link opens the stored full text.
 function clip(text, cut = 88) {
   const t = String(text || "").trim();
   if (t.length <= cut) return esc(t);
   let head = t.slice(0, cut);
   const sp = head.lastIndexOf(" ");
   if (sp > cut * 0.6) head = head.slice(0, sp);
-  return `<details class="xp"><summary><span class="xs">${esc(head)}…</span>` +
-         `<span class="xf">${esc(t)}</span></summary></details>`;
+  return `${esc(head)}…`;
 }
 
 function bullet(text, lead = false) {
   return `<li${lead ? ' class="lead"' : ""}>${clip(text)}</li>`;
 }
+
+const textModals = {};  // key -> {title, html}; rebuilt on every render
+
+function openTextModal(key) {
+  const m = textModals[key];
+  if (!m) return;
+  $("#text-modal-title").textContent = m.title;
+  $("#text-modal-body").innerHTML = m.html;
+  $("#text-modal").classList.remove("hidden");
+}
+function closeTextModal() { $("#text-modal").classList.add("hidden"); }
+window.openTextModal = openTextModal; window.closeTextModal = closeTextModal;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeTextModal(); });
 
 function sentences(text) {
   return String(text || "").split(/(?<=[.!?])\s+(?=[A-ZÅÄÖ])/).map(t => t.trim()).filter(Boolean);
@@ -1158,12 +1183,20 @@ function renderVerdict(c) {
   const finalArgs = (c.arguments || []).slice(-2);
   const debateHtml = finalArgs.length ? `
     <div class="debate">${finalArgs.map(a => {
+      const label = a.stance === "skeptic" ? "☠ Skeptic" : "✓ Advocate";
       const points = [a.strongest_point,
                       ...(a.points || []).filter(pt => pt !== a.strongest_point)];
+      const key = `arg-${c.id}-${a.stance}`;
+      textModals[key] = {
+        title: `${label} · full argument`,
+        html: `<div class="tm-section"><ul>${points.map((pt, i) =>
+                 `<li${i === 0 ? ' class="lead"' : ""}>${esc(pt)}</li>`).join("")}</ul></div>`,
+      };
       return `
       <div class="arg ${a.stance}">
-        <h4>${a.stance === "skeptic" ? "☠ Skeptic" : "✓ Advocate"}</h4>
-        <ul class="pts">${points.map((pt, i) => bullet(pt, i === 0)).join("")}</ul>
+        <h4>${label}</h4>
+        <ul class="pts">${points.slice(0, 3).map((pt, i) => bullet(pt, i === 0)).join("")}</ul>
+        <span class="morelink" onclick="openTextModal('${key}')">Full argument →</span>
       </div>`;
     }).join("")}
     </div>` : "";
@@ -1179,8 +1212,19 @@ function renderVerdict(c) {
       <div class="verdict-box">
         <span class="decision ${v.decision}">${v.decision.replace("_", " ").toUpperCase()}</span>
         ${conf}
-        <ul class="pts" style="margin-top:10px">${sentences(v.reasoning).map(t => bullet(t)).join("")}</ul>
+        <ul class="pts" style="margin-top:10px">${sentences(v.reasoning).slice(0, 3).map(t => bullet(t)).join("")}</ul>
         <div class="action">→ ${clip(v.recommended_action, 110)}</div>
+        <span class="morelink" onclick="openTextModal('${(() => {
+          const key = `verdict-${c.id}`;
+          textModals[key] = {
+            title: `Verdict · ${v.decision.replace("_", " ")}`,
+            html: `<div class="tm-section"><h3>Reasoning</h3><p>${esc(v.reasoning)}</p></div>
+                   <div class="tm-section"><h3>Recommended action</h3><p>${esc(v.recommended_action)}</p></div>
+                   ${(v.key_evidence || []).length ? `<div class="tm-section"><h3>Decisive evidence</h3>
+                     <ul>${v.key_evidence.map(k => `<li>${esc(k)}</li>`).join("")}</ul></div>` : ""}`,
+          };
+          return key;
+        })()}')">Full verdict →</span>
       </div>`;
   } else if (c.status === "error") {
     verdictHtml = `<div class="verdict-box"><span class="decision block">PIPELINE ERROR</span>
@@ -1233,6 +1277,11 @@ async function decide(caseId, decision) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision }),
   });
+  if (!res.ok) {  // a silent no-op button is worse than an alert
+    const err = await res.json().catch(() => ({ detail: "decision failed" }));
+    alert(err.detail || "decision failed");
+    return;
+  }
   const c = await res.json();
   cases.set(c.id, c);
   refreshInvoicesSoon();

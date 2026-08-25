@@ -19,9 +19,19 @@ M = TypeVar("M", bound=BaseModel)
 # read on a projector by a mixed audience, so they must scan, not impress.
 STYLE_RULES = """
 WRITING STYLE (mandatory for every text field you produce):
+- Write for an accounts-payable professional, not an engineer. Your reader
+  approves invoices for a living.
 - Short sentences. Plain words. One idea per sentence.
+- Say "the supplier", "the invoice", "the new bank account on this invoice",
+  "the account we have always paid", "payment history", "the contact details
+  we have on file".
+- Never mention internal or technical machinery: no tool names, APIs, fields,
+  JSON, schemas, flags, notes fields or registries-as-systems. State what was
+  checked and what it showed as a plain business fact. Write "the new account
+  was opened 19 days ago and belongs to a private person, not to the supplier",
+  not "account_registry returned flags recently_opened, private_individual".
 - No em dashes and no en dashes; use commas, colons or a new sentence instead.
-- Keep numbers, names, account strings and dates exact.
+- Keep amounts, names, account numbers and dates exact.
 - No filler ("it is worth noting", "importantly"), no hedging chains.
 """
 
