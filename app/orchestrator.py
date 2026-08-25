@@ -43,10 +43,28 @@ def start_case(case: VerificationCase, invoice: Invoice,
     task.add_done_callback(_TASKS.discard)
 
 
-async def _transition(case: VerificationCase, status: CaseStatus,
-                      detail: str, db: Database, payload: dict | None = None) -> None:
+def rerun_case(case: VerificationCase, invoice: Invoice,
+               baseline: SupplierBaseline | None, db: Database) -> None:
+    """Re-run an existing case in place. Reusing the case id keeps the queue
+    clean — a retry after a failure replaces the card instead of adding one."""
+    case.status = CaseStatus.QUEUED
+    case.evidence = []
+    case.arguments = []
+    case.verdict = None
+    case.human_decision = None
+    case.started_at = None
+    case.finished_at = None
+    db.clear_verdict(case.id)
+    start_case(case, invoice, baseline, db)
+
+
+async def _transition(case: VerificationCase, status: CaseStatus, detail: str,
+                      db: Database, include_case: bool = False) -> None:
     case.status = status
     db.save_case(case)
+    # Serialize AFTER the status is set, or the payload ships the previous
+    # status and the dashboard's case state lags a step behind.
+    payload = {"case": case.model_dump(mode="json")} if include_case else None
     await bus.emit(case.id, "system", "done" if status == CaseStatus.DONE else "thinking",
                    detail, payload)
 
@@ -58,7 +76,7 @@ async def run_case(case: VerificationCase, invoice: Invoice,
     try:
         await _transition(case, CaseStatus.INVESTIGATING,
                           f"{case.id}: {case.claim.summary} → investigating", db,
-                          payload={"case": case.model_dump(mode="json")})
+                          include_case=True)
 
         investigator = Investigator(case.id)
         await investigator.announce()
@@ -92,7 +110,7 @@ async def run_case(case: VerificationCase, invoice: Invoice,
             case, CaseStatus.DONE,
             f"{case.id}: verdict {case.verdict.decision.upper()} "
             f"({case.verdict.confidence:.0%}) — awaiting human decision",
-            db, payload={"case": case.model_dump(mode="json")},
+            db, include_case=True,
         )
     except Exception as e:
         case.status = CaseStatus.ERROR

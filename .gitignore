@@ -6,3 +6,6 @@ trust_layer.db
 .DS_Store
 
 .env
+
+# recording scratch database
+trust_layer_record.db

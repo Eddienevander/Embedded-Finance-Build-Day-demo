@@ -118,12 +118,24 @@ class Database:
     def set_invoice_status(self, invoice_id: str, status: str) -> None:
         self._exec("UPDATE invoices SET status=? WHERE id=?", (status, invoice_id))
 
-    def get_invoices_for(self, orgnr: str, limit: int = 100) -> list[dict]:
-        rows = self._exec(
-            "SELECT * FROM invoices WHERE supplier_orgnr=? ORDER BY issued_date DESC LIMIT ?",
-            (orgnr, limit),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    def get_invoice(self, invoice_id: str) -> Invoice | None:
+        row = self._exec("SELECT * FROM invoices WHERE id=?", (invoice_id,)).fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        data.pop("status", None)
+        return Invoice.model_validate(data)
+
+    def get_invoices_for(self, orgnr: str, limit: int = 100,
+                         exclude_statuses: tuple[str, ...] = ()) -> list[dict]:
+        sql = "SELECT * FROM invoices WHERE supplier_orgnr=?"
+        params: list = [orgnr]
+        if exclude_statuses:
+            sql += f" AND status NOT IN ({','.join('?' * len(exclude_statuses))})"
+            params += list(exclude_statuses)
+        sql += " ORDER BY issued_date DESC LIMIT ?"
+        params.append(limit)
+        return [dict(r) for r in self._exec(sql, tuple(params)).fetchall()]
 
     def find_duplicate(self, orgnr: str, amount_sek: float, reference: str,
                        exclude_id: str) -> dict | None:
@@ -161,6 +173,10 @@ class Database:
                 (case.id, case.verdict.decision, case.verdict.confidence,
                  case.verdict.reasoning, case.verdict.recommended_action, case.human_decision),
             )
+
+    def clear_verdict(self, case_id: str) -> None:
+        """Drop a stale verdict row so a re-run starts clean."""
+        self._exec("DELETE FROM verdicts WHERE case_id=?", (case_id,))
 
     def get_case(self, case_id: str) -> VerificationCase | None:
         row = self._exec("SELECT case_json FROM cases WHERE id=?", (case_id,)).fetchone()

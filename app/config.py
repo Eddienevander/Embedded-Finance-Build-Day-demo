@@ -17,9 +17,9 @@ MOCK_MODE: bool = _env_bool("MOCK_MODE", "true")
 # so an unset ANTHROPIC_API_KEY is not necessarily fatal.
 ANTHROPIC_API_KEY: str | None = os.getenv("ANTHROPIC_API_KEY")
 
-# Sampling temperature is still supported on claude-sonnet-4-6; if you point
-# MODEL at a 4.7+/5-family model, drop the temperature kwargs in agents/.
-MODEL: str = os.getenv("MODEL", "claude-sonnet-4-6")
+# Sampling params were removed on the 4.7+/5 generation, so `temperature` is only
+# sent for models that still accept it (see agents/base.py: sampling_body).
+MODEL: str = os.getenv("MODEL", "claude-opus-4-7")
 
 DB_PATH: str = os.getenv("TRUST_LAYER_DB", "trust_layer.db")
 

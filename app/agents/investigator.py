@@ -1,9 +1,8 @@
 """Investigator: gathers evidence via the tool registry. Never concludes."""
 
-import json
-
-from app.agents.base import BaseAgent, extract_json, truncate
+from app.agents.base import BaseAgent, truncate
 from app.models import Claim, Evidence, Invoice, SupplierBaseline
+from app.schemas import EvidenceBundle, clamp01
 from app.tools.base import ToolRegistry
 
 SYSTEM = """\
@@ -19,15 +18,10 @@ You MUST call each of these tools at least once before finishing:
 - web_intel: check for public announcements relevant to the claim (e.g. a bank change)
 - invoice_archive: field-by-field comparison against this supplier's prior invoices
 
-You may call several tools in parallel. When you have finished gathering, output
-ONLY a JSON array of evidence objects and nothing else — no prose, no code fences:
-[
-  {"tool": "<tool name>", "query": "<what you looked up>",
-   "finding": "<one factual sentence>",
-   "supports": "fraud" | "legit" | "neutral",
-   "confidence": <0.0-1.0>}
-]
-Every finding must be a fact you observed in a tool result, not an inference.
+You may call several tools in parallel. When you have finished gathering, report
+the evidence bundle: one entry per finding, each tagged as supporting "fraud",
+"legit" or "neutral" with your confidence. Every finding must be a fact you
+observed in a tool result, not an inference.
 """
 
 
@@ -47,24 +41,19 @@ class Investigator(BaseAgent):
             f"INCOMING INVOICE:\n{invoice.model_dump_json(indent=2)}\n\n"
             f"SUPPLIER BASELINE (from our records):\n"
             f"{baseline.model_dump_json(indent=2) if baseline else 'none — supplier never seen before'}\n\n"
-            "Gather evidence about this claim, then output the JSON evidence array."
+            "Gather evidence about this claim, then report the evidence bundle."
         )
         try:
-            final_text = await self.run_tool_loop(
-                SYSTEM, [{"role": "user", "content": user}], registry
+            bundle = await self.run_tool_loop(
+                SYSTEM, [{"role": "user", "content": user}], registry, EvidenceBundle
             )
-            items = extract_json(final_text)
-            if not isinstance(items, list):
-                raise ValueError("investigator output was not a JSON array")
-            evidence: list[Evidence] = []
-            for item in items:
-                try:
-                    item.pop("raw", None)
-                    evidence.append(Evidence(**item))
-                except Exception:
-                    continue  # drop malformed items rather than fail the case
+            evidence = [
+                Evidence(tool=i.tool, query=i.query, finding=i.finding,
+                         supports=i.supports, confidence=clamp01(i.confidence))
+                for i in bundle.evidence
+            ]
             if not evidence:
-                raise ValueError("no valid evidence objects in investigator output")
+                raise ValueError("investigator returned an empty evidence bundle")
             await self.beat(
                 "done",
                 f"Collected {len(evidence)} pieces of evidence "

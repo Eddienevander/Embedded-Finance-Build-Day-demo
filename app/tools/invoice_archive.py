@@ -15,6 +15,12 @@ class InvoiceArchiveInput(BaseModel):
     )
 
 
+# Invoices that are themselves under suspicion must never become "history" that
+# the next case reasons from — otherwise a rehearsal run poisons the archive and
+# the demo stops being deterministic.
+UNTRUSTED_STATUSES = ("under_review", "blocked")
+
+
 class InvoiceArchiveTool(EvidenceTool):
     name = "invoice_archive"
     description = (
@@ -28,10 +34,12 @@ class InvoiceArchiveTool(EvidenceTool):
         self._db = db
 
     async def lookup(self, orgnr: str, invoice_id: str | None = None) -> dict:
-        rows = [r for r in self._db.get_invoices_for(orgnr, limit=6) if r["id"] != invoice_id][:5]
+        settled = self._db.get_invoices_for(orgnr, limit=1000,
+                                            exclude_statuses=UNTRUSTED_STATUSES)
+        rows = [r for r in settled if r["id"] != invoice_id][:5]
         return {
             "orgnr": orgnr,
-            "invoice_count_on_file": len(self._db.get_invoices_for(orgnr, limit=1000)),
+            "invoice_count_on_file": len(settled),
             "last_5_invoices": [
                 {
                     "id": r["id"],

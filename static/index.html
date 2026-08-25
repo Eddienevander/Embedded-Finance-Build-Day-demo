@@ -43,7 +43,14 @@
     padding: 9px 8px; border-radius: 8px; border: 1px solid var(--border);
     background: var(--panel2); color: var(--text); font-size: 14px; cursor: pointer;
   }
-  .scenarios button:hover { border-color: var(--blue); }
+  .scenarios button:hover:not(:disabled) { border-color: var(--blue); }
+  .scenarios button:disabled { opacity: .4; cursor: default; }
+  .modes { display: flex; gap: 8px; padding: 0 14px 10px; }
+  .modes button {
+    flex: 1; padding: 7px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--muted); font-size: 13.5px; cursor: pointer;
+  }
+  .modes button.active { color: var(--text); border-color: var(--blue); background: #16283d; }
   .scenarios button.headline { grid-column: 1 / -1; border-color: var(--amber); font-weight: 600; }
   #queue { overflow-y: auto; padding: 0 14px 14px; display: flex; flex-direction: column; gap: 8px; }
   .case-card {
@@ -148,6 +155,10 @@
                   border: none; cursor: pointer; }
   #btn-approve { background: #14532d; color: #d1fae5; }
   #btn-block { background: #7f1d1d; color: #fee2e2; }
+  #btn-rerun { width: 100%; margin-top: 8px; padding: 9px; font-size: 14px; font-weight: 600;
+               border-radius: 8px; border: 1px solid var(--border); background: var(--panel2);
+               color: var(--text); cursor: pointer; }
+  #btn-rerun:hover { border-color: var(--blue); }
   .hbtns button:disabled { opacity: .45; cursor: default; }
   .human-note { font-size: 14px; color: var(--muted); }
   .empty { color: var(--muted); font-size: 14px; padding: 0 14px; }
@@ -163,12 +174,16 @@
   <!-- left -->
   <section class="panel">
     <h2>Scenarios</h2>
+    <div class="modes">
+      <button id="mode-live" class="active" onclick="setMode('live')">● Live agents</button>
+      <button id="mode-replay" onclick="setMode('replay')">▶ Replay recorded</button>
+    </div>
     <div class="scenarios">
-      <button class="headline" onclick="fire('account_swap')">⚠ Account swap (headline)</button>
-      <button onclick="fire('clean')">Clean invoice</button>
-      <button onclick="fire('ghost_supplier')">Ghost supplier</button>
-      <button onclick="fire('legit_bank_change')">Legit bank change</button>
-      <button onclick="fire('double_finance')">Double financing</button>
+      <button class="headline" data-scenario="account_swap" onclick="fire('account_swap')">⚠ Account swap (headline)</button>
+      <button data-scenario="clean" onclick="fire('clean')">Clean invoice</button>
+      <button data-scenario="ghost_supplier" onclick="fire('ghost_supplier')">Ghost supplier</button>
+      <button data-scenario="legit_bank_change" onclick="fire('legit_bank_change')">Legit bank change</button>
+      <button data-scenario="double_finance" onclick="fire('double_finance')">Double financing</button>
     </div>
     <h2>Case queue</h2>
     <div id="queue"><div class="empty">Fire a scenario to start.</div></div>
@@ -231,8 +246,35 @@ function esc(s) {
     ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+let mode = "live";           // "live" hits the agents, "replay" plays a recording
+let recordings = [];
+
+function setMode(m) {
+  mode = m;
+  $("#mode-live").classList.toggle("active", m === "live");
+  $("#mode-replay").classList.toggle("active", m === "replay");
+  updateScenarioButtons();
+}
+
+function updateScenarioButtons() {
+  document.querySelectorAll(".scenarios button[data-scenario]").forEach(b => {
+    const name = b.dataset.scenario;
+    const usable = mode === "live" || recordings.includes(name);
+    b.disabled = !usable;
+    b.title = usable ? "" : `no recording yet — uv run python -m app.record ${name}`;
+  });
+}
+
+async function loadRecordings() {
+  try {
+    recordings = (await (await fetch("/demo/recordings")).json()).recordings || [];
+  } catch { recordings = []; }
+  updateScenarioButtons();
+}
+
 async function fire(name) {
-  await fetch(`/demo/scenario/${name}`, { method: "POST" });
+  const url = mode === "replay" ? `/demo/replay/${name}` : `/demo/scenario/${name}`;
+  await fetch(url, { method: "POST" });
 }
 
 async function refreshCases() {
@@ -367,7 +409,8 @@ function renderVerdict(c) {
       <button id="btn-approve" ${decided ? "disabled" : ""} onclick="decide('${c.id}','approve')">APPROVE PAYMENT</button>
       <button id="btn-block" ${decided ? "disabled" : ""} onclick="decide('${c.id}','block')">BLOCK PAYMENT</button>
     </div>
-    ${decided ? `<div class="human-note">Human decision recorded: <b>${esc(c.human_decision).toUpperCase()}</b></div>` : ""}` : "";
+    ${decided ? `<div class="human-note">Human decision recorded: <b>${esc(c.human_decision).toUpperCase()}</b></div>` : ""}
+    <button id="btn-rerun" onclick="rerunCase('${c.id}')">↻ RE-RUN THIS CASE</button>` : "";
 
   p.innerHTML = `
     <div class="vc-section"><h3>Claim · ${esc(c.id)}</h3>
@@ -389,6 +432,22 @@ async function decide(caseId, decision) {
   renderQueue(); renderVerdict(c);
 }
 window.decide = decide;
+
+async function rerunCase(caseId) {
+  const res = await fetch(`/cases/${caseId}/rerun`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "re-run failed" }));
+    alert(err.detail || "re-run failed");
+    return;
+  }
+  const c = await res.json();
+  cases.set(c.id, c);
+  selectedCase = c.id;
+  resetMonitor(c.id);
+  renderQueue();
+  renderVerdict(c);
+}
+window.rerunCase = rerunCase; window.setMode = setMode;
 
 // ---------- websocket ----------
 function connect() {
@@ -432,6 +491,7 @@ function connect() {
 
 connect();
 refreshCases();
+loadRecordings();
 </script>
 </body>
 </html>
