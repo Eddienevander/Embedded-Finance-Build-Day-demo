@@ -77,6 +77,17 @@ async def submit_invoice(invoice: Invoice) -> dict:
     }
 
 
+@app.get("/invoices")
+async def list_invoices(include_paid: bool = False) -> list[dict]:
+    """The invoice inbox: everything except seeded history, newest first, with
+    the ids of any verification cases spawned for each invoice."""
+    cases_by_invoice: dict[str, list[str]] = {}
+    for case in CASES.values():
+        cases_by_invoice.setdefault(case.claim.invoice_id, []).append(case.id)
+    rows = get_db().list_invoices(exclude_statuses=() if include_paid else ("paid",))
+    return [{**row, "case_ids": cases_by_invoice.get(row["id"], [])} for row in rows]
+
+
 @app.post("/demo/scenario/{name}")
 async def run_scenario(name: str) -> dict:
     if name not in SCENARIOS:
@@ -100,9 +111,12 @@ async def sync_zwapgrid() -> dict:
     real Fortnox/Xero-connected sandbox data feed real cases, instead of only
     the scripted fictional scenarios."""
     db = get_db()
+    await bus.emit("zwapgrid-sync", "system", "thinking",
+                   "Zwapgrid: fetching supplier invoices from the connected consent…")
     try:
         invoices = await ZwapgridRealTool().fetch_incoming_invoices()
     except RuntimeError as e:
+        await bus.emit("zwapgrid-sync", "system", "error", f"Zwapgrid sync failed: {e}")
         raise HTTPException(400, str(e))
 
     results = []
@@ -117,12 +131,16 @@ async def sync_zwapgrid() -> dict:
             "case_ids": [c.id for c in cases],
         })
 
-    return {
+    summary = {
         "fetched": len(invoices),
         "new": len(results),
         "skipped_already_seen": len(invoices) - len(results),
         "invoices": results,
     }
+    await bus.emit("zwapgrid-sync", "system", "done",
+                   f"Zwapgrid: {summary['fetched']} invoice(s) fetched, "
+                   f"{summary['new']} new, {summary['skipped_already_seen']} already seen.")
+    return summary
 
 
 @app.get("/demo/recordings")

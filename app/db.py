@@ -140,6 +140,19 @@ class Database:
         params.append(limit)
         return [dict(r) for r in self._exec(sql, tuple(params)).fetchall()]
 
+    def list_invoices(self, exclude_statuses: tuple[str, ...] = ("paid",),
+                      limit: int = 200) -> list[dict]:
+        """The operational inbox: newest first, seeded history ('paid') excluded
+        by default so real traffic isn't drowned by 100+ backfill rows."""
+        sql = "SELECT * FROM invoices"
+        params: list = []
+        if exclude_statuses:
+            sql += f" WHERE status NOT IN ({','.join('?' * len(exclude_statuses))})"
+            params += list(exclude_statuses)
+        sql += " ORDER BY issued_date DESC, rowid DESC LIMIT ?"
+        params.append(limit)
+        return [dict(r) for r in self._exec(sql, tuple(params)).fetchall()]
+
     def find_duplicate(self, orgnr: str, amount_sek: float, reference: str,
                        exclude_id: str) -> dict | None:
         row = self._exec(
