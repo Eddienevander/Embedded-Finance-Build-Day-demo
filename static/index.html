@@ -254,6 +254,11 @@
                           color: var(--blue); cursor: pointer; }
   #btn-run-verification:hover:not(:disabled) { background: #1c334d; }
   #btn-run-verification:disabled { opacity: .7; cursor: default; }
+  #btn-force-verification { width: 100%; margin-top: 10px; padding: 11px; font-size: 15px; font-weight: 700;
+                            border-radius: 8px; border: 1px solid var(--amber); background: #3a2d12;
+                            color: var(--amber); cursor: pointer; }
+  #btn-force-verification:hover:not(:disabled) { background: #4a3a17; }
+  #btn-force-verification:disabled { opacity: .7; cursor: default; }
   .hbtns button:disabled { opacity: .45; cursor: default; }
   .human-note { font-size: 14px; color: var(--muted); }
   .empty { color: var(--muted); font-size: 14px; padding: 0 14px; }
@@ -380,6 +385,12 @@ function toolLabel(tool) {
   return tool;
 }
 
+// Mirrors app/tools/openpayments_real.py's parse_creditor_giro: is this a
+// bankgiro/plusgiro number Open Payments could actually pay to?
+function hasGiroAccount(account) {
+  return /\d{2,4}-\d{4,7}/.test(account || "");
+}
+
 let mode = "live";           // "live" hits the agents, "replay" plays a recording
 let recordings = [];
 
@@ -416,7 +427,7 @@ async function syncZwapgrid() {
   out.textContent = "Syncing…";
   try {
     const res = await fetch("/demo/zwapgrid-sync", { method: "POST" });
-    const body = await res.json();
+    const body = await res.json().catch(() => ({}));
     if (!res.ok) {
       out.textContent = `Error: ${body.detail || res.statusText}`;
       return;
@@ -482,17 +493,19 @@ async function loadPaymentsModal() {
   const body_rows = rows.map(r => {
     const statusClass = r.error ? "err" : (r.live_status === r.recorded_status ? "match" : "mismatch");
     const live = r.error ? `ERROR: ${esc(r.error)}` : esc(r.live_status || "?");
-    let zwapgridClass = "na", zwapgridText = "not available";
-    if (r.zwapgrid_status === "FULLY_PAID") { zwapgridClass = "match"; zwapgridText = "FULLY_PAID"; }
-    else if (r.zwapgrid_status) { zwapgridClass = "mismatch"; zwapgridText = esc(r.zwapgrid_status); }
-    if (r.zwapgrid_settlement_date) zwapgridText += ` (${esc(r.zwapgrid_settlement_date)})`;
+    let zwapgridClass = "na", zwapgridText = "not a Zwapgrid invoice";
+    if (r.zwapgrid_found) {
+      if (r.zwapgrid_paid) { zwapgridClass = "match"; zwapgridText = "PAID (registered)"; }
+      else if (r.zwapgrid_total_paid > 0) { zwapgridClass = "mismatch"; zwapgridText = `partially paid (${r.zwapgrid_total_paid.toLocaleString()} SEK)`; }
+      else { zwapgridClass = "na"; zwapgridText = "no payment registered"; }
+    }
     return `<div class="pay-row">
       <div>${esc(r.supplier_name || r.invoice_id)}<div class="mono">${esc(r.case_id)}</div></div>
       <div>${r.amount_sek != null ? r.amount_sek.toLocaleString() + " SEK" : "?"}</div>
       <div class="mono">${esc(r.payment_id)}</div>
       <div>${esc(r.recorded_status || "?")}</div>
       <div class="pay-status ${statusClass}">${live}</div>
-      <div class="pay-status ${zwapgridClass}" title="Reflects the connected accounting system's own reconciliation — not written by us; Zwapgrid has no write-back API">${zwapgridText}</div>
+      <div class="pay-status ${zwapgridClass}" title="Whether a matching payment has been registered against this invoice via Zwapgrid's supplier-invoice-payments endpoint">${zwapgridText}</div>
     </div>`;
   }).join("");
   body.innerHTML = head + body_rows;
@@ -538,11 +551,13 @@ function renderInbox() {
   for (const inv of invoices.values()) {
     const chip = `<span class="chip ${esc(inv.status)}">${STATUS_LABEL[inv.status] || esc(inv.status)}</span>`;
     const caseMark = inv.case_ids.length ? ` · ${inv.case_ids.length} case` : "";
+    const noAccountMark = hasGiroAccount(inv.bank_account) ? "" :
+      ` · <span style="color:var(--amber)" title="No bankgiro/plusgiro on file — can't pay via Open Payments without confirming one">⚠ no account</span>`;
     box.insertAdjacentHTML("beforeend", `
       <div class="inv-row ${inv.id === selectedInvoice ? "selected" : ""}" onclick="selectInvoice('${esc(inv.id)}')">
         <div class="row1"><span class="sup">${esc(inv.supplier_name)}</span>${chip}</div>
         <div class="meta"><span>${Number(inv.amount_sek).toLocaleString("sv-SE")} SEK</span>
-          <span>${esc(inv.issued_date)}${caseMark}</span></div>
+          <span>${esc(inv.issued_date)}${caseMark}${noAccountMark}</span></div>
       </div>`);
   }
 }
@@ -773,6 +788,8 @@ function invoiceBlock(inv) {
     ? `<div class="human-note" style="margin-top:6px">${INVOICE_NOTE[inv.status]}</div>` : "";
   const runBtn = inv.status === "fetched"
     ? `<button id="btn-run-verification" onclick="processInvoice('${esc(inv.id)}')">▶ Run verification</button>` : "";
+  const forceBtn = inv.status === "invalid" && !inv.case_ids.length
+    ? `<button id="btn-force-verification" onclick="processInvoice('${esc(inv.id)}', true)">⚠ Run through agents anyway</button>` : "";
   return `
     <div class="vc-section"><h3>Invoice · ${esc(inv.id)}
         <span class="chip ${esc(inv.status)}" style="float:right">${STATUS_LABEL[inv.status] || esc(inv.status)}</span></h3>
@@ -785,6 +802,7 @@ function invoiceBlock(inv) {
         ${inv.raw_note ? `<br><i style="color:var(--muted)">"${esc(inv.raw_note)}"</i>` : ""}
         ${note}
         ${runBtn}
+        ${forceBtn}
       </div></div>`;
 }
 
@@ -837,12 +855,26 @@ function renderVerdict(c) {
 
   const decided = !!c.human_decision;
   const paid = !!c.payment_status && c.payment_status !== "failed";
-  const payHtml = c.human_decision === "approve" ? `
-    <button id="btn-pay" ${paid ? "disabled" : ""} onclick="payCase('${c.id}')">
-      ${paid ? `✓ PAID via Open Payments (${esc(c.payment_status)})` : "⚡ EXECUTE PAYMENT (Open Payments)"}
-    </button>
-    ${c.payment_status === "failed" ? '<div class="human-note" style="color:var(--red)">Payment failed — click to retry.</div>' : ""}
-  ` : "";
+  const payInvoice = invoices.get(c.claim.invoice_id);
+  const hasGiro = hasGiroAccount(payInvoice && payInvoice.bank_account);
+  const payHtml = c.human_decision === "approve" ? (
+    !paid && !hasGiro
+      ? `<div class="human-note" style="color:var(--amber); margin-top:8px">
+           No bank account on file for this invoice (bank_account=${esc((payInvoice && payInvoice.bank_account) || "UNKNOWN")}) —
+           the real Zwapgrid data didn't carry one. Confirm the real bankgiro/plusgiro through
+           another channel and enter it below to pay.
+         </div>
+         <div style="display:flex; gap:8px; margin-top:6px;">
+           <input id="pay-account-override" placeholder="e.g. 123-4567" value="123-4567" style="flex:1; padding:9px;
+                  border-radius:8px; border:1px solid var(--border); background:var(--panel2);
+                  color:var(--text); font-family:var(--mono); font-size:14px;">
+           <button id="btn-pay" onclick="payCase('${c.id}', true)">⚡ Confirm & pay</button>
+         </div>`
+      : `<button id="btn-pay" ${paid ? "disabled" : ""} onclick="payCase('${c.id}')">
+           ${paid ? `✓ PAID via Open Payments (${esc(c.payment_status)})` : "⚡ EXECUTE PAYMENT (Open Payments)"}
+         </button>
+         ${c.payment_status === "failed" ? '<div class="human-note" style="color:var(--red)">Payment failed — click to retry.</div>' : ""}`
+  ) : "";
   const humanHtml = c.verdict || c.status === "error" ? `
     <div class="hbtns">
       <button id="btn-approve" ${decided ? "disabled" : ""} onclick="decide('${c.id}','approve')">APPROVE PAYMENT</button>
@@ -889,10 +921,20 @@ async function rerunCase(caseId) {
   renderInbox();
   renderDetail();
 }
-async function payCase(caseId) {
+async function payCase(caseId, useAccountOverride = false) {
   const btn = document.getElementById("btn-pay");
+  let bankAccount = null;
+  if (useAccountOverride) {
+    const input = document.getElementById("pay-account-override");
+    bankAccount = input ? input.value.trim() : "";
+    if (!bankAccount) { alert("Enter the confirmed bank account first"); return; }
+  }
   if (btn) { btn.disabled = true; btn.textContent = "Paying via Open Payments…"; }
-  const res = await fetch(`/cases/${caseId}/pay`, { method: "POST" });
+  const res = await fetch(`/cases/${caseId}/pay`, {
+    method: "POST",
+    headers: bankAccount ? { "Content-Type": "application/json" } : {},
+    body: bankAccount ? JSON.stringify({ bank_account: bankAccount }) : undefined,
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "payment failed" }));
     alert(err.detail || "payment failed");
@@ -906,14 +948,17 @@ async function payCase(caseId) {
 }
 window.payCase = payCase;
 
-async function processInvoice(invoiceId) {
-  const btn = document.getElementById("btn-run-verification");
+async function processInvoice(invoiceId, force = false) {
+  const btnId = force ? "btn-force-verification" : "btn-run-verification";
+  const defaultLabel = force ? "⚠ Run through agents anyway" : "▶ Run verification";
+  const btn = document.getElementById(btnId);
   if (btn) { btn.disabled = true; btn.textContent = "Running…"; }
-  const res = await fetch(`/invoices/${invoiceId}/process`, { method: "POST" });
+  const url = `/invoices/${invoiceId}/process` + (force ? "?force=true" : "");
+  const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "failed to process invoice" }));
     alert(err.detail || "failed to process invoice");
-    if (btn) { btn.disabled = false; btn.textContent = "▶ Run verification"; }
+    if (btn) { btn.disabled = false; btn.textContent = defaultLabel; }
     return;
   }
   const body = await res.json();

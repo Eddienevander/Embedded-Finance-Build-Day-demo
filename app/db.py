@@ -118,6 +118,12 @@ class Database:
     def set_invoice_status(self, invoice_id: str, status: str) -> None:
         self._exec("UPDATE invoices SET status=? WHERE id=?", (status, invoice_id))
 
+    def set_invoice_bank_account(self, invoice_id: str, bank_account: str) -> None:
+        """A human confirming the real account through another channel when
+        the source data (e.g. a real Zwapgrid invoice with no note) didn't
+        carry one — not a fabricated value, see /cases/{id}/pay."""
+        self._exec("UPDATE invoices SET bank_account=? WHERE id=?", (bank_account, invoice_id))
+
     def invoice_exists(self, invoice_id: str) -> bool:
         return self._exec("SELECT 1 FROM invoices WHERE id=?", (invoice_id,)).fetchone() is not None
 

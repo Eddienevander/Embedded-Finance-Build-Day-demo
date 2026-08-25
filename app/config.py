@@ -30,6 +30,13 @@ ZWAPGRID_BASE_URL: str = os.getenv("ZWAPGRID_BASE_URL", "https://apione.zwapgrid
 ZWAPGRID_API_KEY: str | None = os.getenv("ZWAPGRID_API_KEY")
 ZWAPGRID_CONSENT_ID: str | None = os.getenv("ZWAPGRID_CONSENT_ID")
 
+# Cap on how many invoices a single sync pulls (rate-limit-friendly — the
+# sandbox has returned a real 429) and how often /demo/zwapgrid-sync will
+# actually call out, in seconds (repeat clicks are refused with 429 instead
+# of hammering Zwapgrid again).
+ZWAPGRID_SYNC_LIMIT: int = int(os.getenv("ZWAPGRID_SYNC_LIMIT", "10"))
+ZWAPGRID_SYNC_COOLDOWN_SECONDS: float = float(os.getenv("ZWAPGRID_SYNC_COOLDOWN_SECONDS", "30"))
+
 # Startup default for the dashboard's "real integrations" toggle (see
 # app/orchestrator.py: set_real_integrations) — swaps in adapters actually
 # wired to a live API (Zwapgrid today) without needing MOCK_MODE=false.

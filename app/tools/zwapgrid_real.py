@@ -35,16 +35,18 @@ TODO(venue):
   - Decide a polling cadence and call this on a schedule (or on-demand before
     financing decisions) — the API is polling-only, there's no push.
 
-No write-back, confirmed against the live OpenAPI spec (docs.zwapgrid.com),
-not guessed: the entire supplier-invoice surface is
-GET /consents/{consentId}/supplierinvoices (list), POST .../supplierinvoices
-(create), GET .../supplierinvoices/{id} (single) — no PATCH/PUT anywhere. We
-cannot push "this invoice is now paid" into the connected accounting system.
-What the single-invoice GET *does* return is a `paymentStatus` (UNPAID /
-PARTLY_PAID / FULLY_PAID) + `settlementDate` that reflects whatever the
-accounting system's own reconciliation has already decided — see
-get_invoice_payment_status. That's a read of the buyer's books agreeing
-payment happened, not something we write.
+Correction to an earlier version of this note: there IS a write path for
+payments, just not on the invoice resource itself — it's the separate
+POST /consents/{consentId}/supplierinvoices/{id}/payments (see
+create_invoice_payment), confirmed live against the sandbox (201, and
+Fortnox enforces it internally: it rejected a duplicate payment on an
+already-settled invoice with "Leverantörsfaktura X är redan slutbetald").
+What still doesn't work, also confirmed live rather than assumed: the
+invoice's own `paymentStatus` field (GET .../supplierinvoices/{id}) does
+NOT update from a payment registered this way — a real gap in the Fortnox
+connector's field mapping, not something fixable by more request tweaking.
+So "is this invoice paid" should be computed from get_invoice_payments'
+sum, not get_invoice_payment_status.
 """
 
 import re
@@ -125,23 +127,30 @@ class ZwapgridRealTool:
             raise RuntimeError("ZWAPGRID_API_KEY is not set")
         return {"x-api-key": config.ZWAPGRID_API_KEY, "x-correlation-id": str(uuid.uuid4())}
 
-    async def fetch_incoming_invoices(self) -> list[Invoice]:
-        """Poll every page of supplier invoices for the connected Consent."""
+    async def fetch_incoming_invoices(self, limit: int | None = None) -> list[Invoice]:
+        """Poll supplier invoices for the connected Consent. Pass `limit` to
+        stop after roughly that many (one page, sized to the limit, instead
+        of paginating through everything) — the sandbox has a real rate
+        limit (429, confirmed live) and a live consent can hold dozens of
+        rows, most of it placeholder/seed data not worth an API call to see."""
         if not config.ZWAPGRID_CONSENT_ID:
             raise RuntimeError("ZWAPGRID_CONSENT_ID is not set")
 
         invoices: list[Invoice] = []
         page = 1
+        page_size = min(limit, 100) if limit else 100
         async with httpx.AsyncClient(timeout=30) as client:
             while True:
                 resp = await client.get(
                     f"{config.ZWAPGRID_BASE_URL}/consents/{config.ZWAPGRID_CONSENT_ID}/supplierinvoices",
                     headers=self._headers(),
-                    params={"Count": 100, "CurrentPage": page},
+                    params={"Count": page_size, "CurrentPage": page},
                 )
                 resp.raise_for_status()
                 body = resp.json()
                 invoices.extend(_to_invoice(item) for item in body["data"])
+                if limit and len(invoices) >= limit:
+                    return invoices[:limit]
                 if page >= body["meta"]["totalPages"]:
                     break
                 page += 1
@@ -172,6 +181,59 @@ class ZwapgridRealTool:
                 "status": status.get("status"),
                 "settlement_date": status.get("settlementDate"),
             }
+
+    async def get_invoice_payments(self, invoice_id: str) -> list[dict] | None:
+        """List payments registered against a supplier invoice
+        (GET .../supplierinvoices/{id}/payments). Returns None using the same
+        convention as get_invoice_payment_status (400/404/501 = not a real
+        Zwapgrid invoice or unsupported). Prefer this over
+        get_invoice_payment_status for "is this actually paid": confirmed
+        live that Fortnox's paymentStatus field on the invoice itself does
+        NOT reflect payments registered here, even though Fortnox internally
+        tracks and enforces them (it rejected a duplicate payment on an
+        already-settled invoice with "Leverantörsfaktura X är redan
+        slutbetald" while paymentStatus stayed null) — a real connector gap,
+        not something more request tweaking fixes."""
+        if not config.ZWAPGRID_CONSENT_ID:
+            raise RuntimeError("ZWAPGRID_CONSENT_ID is not set")
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{config.ZWAPGRID_BASE_URL}/consents/{config.ZWAPGRID_CONSENT_ID}"
+                f"/supplierinvoices/{invoice_id}/payments",
+                headers=self._headers(),
+            )
+            if resp.status_code in (400, 404, 501):
+                return None
+            resp.raise_for_status()
+            return resp.json().get("data") or []
+
+    async def create_invoice_payment(
+        self, invoice_id: str, amount: float, currency: str, reference: str, paid_date: str
+    ) -> None:
+        """Register a real payment against a supplier invoice — verified
+        live (201, Fortnox even enforces "already fully paid" internally on
+        a duplicate). This is the closest thing to "mark paid" the Accounting
+        API actually exposes; it's additive (a payment record), not an
+        update to the invoice itself, since no such endpoint exists."""
+        if not config.ZWAPGRID_CONSENT_ID:
+            raise RuntimeError("ZWAPGRID_CONSENT_ID is not set")
+        payload = {
+            "reference": reference,
+            "receivedDate": paid_date,
+            "paidDate": paid_date,
+            "bookedIndicator": True,
+            "bookedDate": paid_date,
+            "amount": amount,
+            "documentCurrencyCode": {"currencyId": currency},
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{config.ZWAPGRID_BASE_URL}/consents/{config.ZWAPGRID_CONSENT_ID}"
+                f"/supplierinvoices/{invoice_id}/payments",
+                headers={**self._headers(), "content-type": "application/json"},
+                json=payload,
+            )
+            resp.raise_for_status()
 
 
 class ZwapgridPaymentHistoryTool(EvidenceTool):

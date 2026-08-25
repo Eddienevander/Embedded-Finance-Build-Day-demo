@@ -2,11 +2,13 @@
 and the /ws heartbeat stream that drives the dashboard."""
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from typing import Literal
 
+import httpx
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,7 +29,12 @@ from app.orchestrator import (
 )
 from app.replay import available_recordings, has_recording, replay_scenario
 from app.seed import SCENARIOS, make_scenario_invoices
-from app.tools.openpayments_real import OpenPaymentsError, OpenPaymentsPISClient, SETTLED_STATUSES
+from app.tools.openpayments_real import (
+    OpenPaymentsError,
+    OpenPaymentsPISClient,
+    SETTLED_STATUSES,
+    parse_creditor_giro,
+)
 from app.tools.zwapgrid_real import ZwapgridRealTool
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -50,13 +57,40 @@ _BACKGROUND: set[asyncio.Task] = set()
 # Overlapping replays of the same recording would apply stale case states on top
 # of newer ones (status marching backwards), so one at a time per scenario.
 _ACTIVE_REPLAYS: set[str] = set()
+_last_zwapgrid_sync: float = 0.0  # monotonic seconds; guards the cooldown below
+
+
+async def _stage_zwapgrid_invoices() -> dict:
+    """Fetch (capped at ZWAPGRID_SYNC_LIMIT) invoices from Zwapgrid and stage
+    any new ones as 'fetched' — no quarantine check, no agents. Shared by the
+    manual sync endpoint and the one-shot startup sync."""
+    db = get_db()
+    invoices = await ZwapgridRealTool().fetch_incoming_invoices(limit=config.ZWAPGRID_SYNC_LIMIT)
+    new_ids = []
+    for invoice in invoices:
+        if db.invoice_exists(invoice.id):
+            continue
+        db.insert_invoice(invoice, status="fetched")
+        new_ids.append(invoice.id)
+    return {
+        "fetched": len(invoices),
+        "new": len(new_ids),
+        "skipped_already_seen": len(invoices) - len(new_ids),
+        "invoice_ids": new_ids,
+    }
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _last_zwapgrid_sync
     db = get_db()
     load_persisted_cases(db)
     get_registry(db)  # build mock/real tool registry at startup
+    try:
+        await _stage_zwapgrid_invoices()
+        _last_zwapgrid_sync = time.monotonic()
+    except Exception:
+        pass  # not configured / sandbox unreachable at boot — manual sync still works
     yield
 
 
@@ -91,21 +125,26 @@ async def list_invoices(include_paid: bool = False) -> list[dict]:
 
 
 @app.post("/invoices/{invoice_id}/process")
-async def process_fetched_invoice(invoice_id: str) -> dict:
+async def process_fetched_invoice(invoice_id: str, force: bool = False) -> dict:
     """Run the intake pipeline (quarantine check, claim detection, and the
     agent pipeline if a claim is found) for exactly one invoice, on demand.
-    Only valid for an invoice still sitting in 'fetched' status — once
-    processed it moves on to invalid/auto_approved/under_review, and this
-    won't re-run it (avoids spawning a duplicate case on a repeat click)."""
+    Valid for an invoice in 'fetched' status; also valid for one already
+    quarantined ('invalid') if force=true — the placeholder check is a
+    default recommendation, not a hard block, and a human reviewing a
+    specific invoice may want it run anyway. Once actually processed (not
+    quarantined) this won't re-run it, to avoid a duplicate case."""
     db = get_db()
     status = db.get_invoice_status(invoice_id)
     if status is None:
         raise HTTPException(404, f"no such invoice: {invoice_id}")
-    if status != "fetched":
+    if status not in ("fetched", "invalid"):
         raise HTTPException(409, f"invoice {invoice_id} is already {status!r} — nothing to process")
+    if status == "invalid" and not force:
+        raise HTTPException(409, f"invoice {invoice_id} was quarantined as a placeholder — "
+                                 "pass ?force=true to run it through the agents anyway")
 
     invoice = db.get_invoice(invoice_id)
-    cases = await process_invoice(invoice, db)
+    cases = await process_invoice(invoice, db, force=force)
     return {
         "invoice_id": invoice.id,
         "auto_approved": not cases,
@@ -131,34 +170,37 @@ async def run_scenario(name: str) -> dict:
 
 @app.post("/demo/zwapgrid-sync")
 async def sync_zwapgrid() -> dict:
-    """Pull invoices from the connected Zwapgrid consent and stage any we
-    haven't seen yet as 'fetched' — visible in the inbox, but NOT run through
-    the intake pipeline (quarantine check, claims, agents) here. A live
-    sandbox can hand back dozens of rows in one call; auto-running all of
-    them would mean an unpredictable number of concurrent agent pipelines.
-    Trigger verification per invoice on demand via POST /invoices/{id}/process."""
-    db = get_db()
+    """Pull up to ZWAPGRID_SYNC_LIMIT invoices from the connected Zwapgrid
+    consent and stage any we haven't seen yet as 'fetched' — visible in the
+    inbox, but NOT run through the intake pipeline (quarantine check, claims,
+    agents) here. Trigger verification per invoice on demand via
+    POST /invoices/{id}/process. Rate-limited client-side too (the sandbox
+    itself has returned a real 429) — repeat clicks within the cooldown are
+    refused instead of hammering Zwapgrid again."""
+    global _last_zwapgrid_sync
+    elapsed = time.monotonic() - _last_zwapgrid_sync
+    if elapsed < config.ZWAPGRID_SYNC_COOLDOWN_SECONDS:
+        wait = config.ZWAPGRID_SYNC_COOLDOWN_SECONDS - elapsed
+        raise HTTPException(429, f"synced recently — wait {wait:.0f}s before syncing again")
+    _last_zwapgrid_sync = time.monotonic()
+
     await bus.emit("zwapgrid-sync", "system", "thinking",
                    "Zwapgrid: fetching supplier invoices from the connected consent…")
     try:
-        invoices = await ZwapgridRealTool().fetch_incoming_invoices()
+        summary = await _stage_zwapgrid_invoices()
     except RuntimeError as e:
         await bus.emit("zwapgrid-sync", "system", "error", f"Zwapgrid sync failed: {e}")
         raise HTTPException(400, str(e))
+    except httpx.HTTPStatusError as e:
+        detail = f"Zwapgrid returned {e.response.status_code}"
+        if e.response.status_code == 429:
+            detail += " (rate-limited — wait a bit before trying again)"
+        await bus.emit("zwapgrid-sync", "system", "error", f"Zwapgrid sync failed: {detail}")
+        raise HTTPException(502, detail)
+    except httpx.HTTPError as e:
+        await bus.emit("zwapgrid-sync", "system", "error", f"Zwapgrid sync failed: {e}")
+        raise HTTPException(502, f"Zwapgrid request failed: {type(e).__name__}: {e}")
 
-    new_ids = []
-    for invoice in invoices:
-        if db.invoice_exists(invoice.id):
-            continue
-        db.insert_invoice(invoice, status="fetched")
-        new_ids.append(invoice.id)
-
-    summary = {
-        "fetched": len(invoices),
-        "new": len(new_ids),
-        "skipped_already_seen": len(invoices) - len(new_ids),
-        "invoice_ids": new_ids,
-    }
     await bus.emit("zwapgrid-sync", "system", "done",
                    f"Zwapgrid: {summary['fetched']} invoice(s) fetched, "
                    f"{summary['new']} new (staged for review — select one and run verification), "
@@ -227,8 +269,16 @@ async def record_decision(case_id: str, body: DecisionBody) -> dict:
     return case.model_dump(mode="json")
 
 
+class PayBody(BaseModel):
+    # Set when the invoice itself has no usable account (e.g. real Zwapgrid
+    # data with an empty note — see parse_creditor_giro): a human confirming
+    # the real bankgiro/plusgiro through another channel before paying,
+    # not a fabricated fallback.
+    bank_account: str | None = None
+
+
 @app.post("/cases/{case_id}/pay")
-async def pay_case(case_id: str) -> dict:
+async def pay_case(case_id: str, body: PayBody | None = None) -> dict:
     """Execute the case's payment via Open Payments Europe's PIS (sandbox
     decoupled flow — see app/tools/openpayments_real.py), only once a human
     has approved. On settlement, marks the invoice paid in our own DB —
@@ -248,6 +298,22 @@ async def pay_case(case_id: str) -> dict:
         raise HTTPException(409, "the invoice for this case is not on file "
                                  "(replayed case?) — can't execute payment")
 
+    override = (body.bank_account or "").strip() if body else ""
+    bank_account = override or invoice.bank_account
+    try:
+        parse_creditor_giro(bank_account)
+    except ValueError:
+        raise HTTPException(
+            422,
+            f"invoice {invoice.id} has no valid bankgiro/plusgiro account "
+            f"(got {bank_account!r}) — can't execute a payment with no known destination. "
+            "This is a real gap in the source data, not a bug: pass a confirmed "
+            "`bank_account` in the request body to pay to it.",
+        )
+    if override and override != invoice.bank_account:
+        db.set_invoice_bank_account(invoice.id, override)
+        invoice = invoice.model_copy(update={"bank_account": override})
+
     try:
         result = await OpenPaymentsPISClient().pay_invoice(invoice)
     except RuntimeError as e:
@@ -265,8 +331,22 @@ async def pay_case(case_id: str) -> dict:
     db.save_case(case)
     db.set_invoice_status(invoice.id, "paid")
     db.add_payment(invoice.supplier_orgnr, invoice.id, invoice.amount_sek, invoice.bank_account, date.today())
+
+    # Best-effort: a scripted demo scenario's invoice never came from Zwapgrid
+    # at all, so this legitimately fails for those — the Open Payments
+    # settlement above is already the source of truth regardless.
+    zwapgrid_note = ""
+    try:
+        await ZwapgridRealTool().create_invoice_payment(
+            invoice.id, invoice.amount_sek, invoice.currency,
+            reference=f"OpenPayments-{result['payment_id']}", paid_date=date.today().isoformat(),
+        )
+        zwapgrid_note = " and registered as a payment in Zwapgrid/Fortnox"
+    except Exception as e:
+        zwapgrid_note = f" (Zwapgrid payment registration skipped: {type(e).__name__}: {e})"
+
     await bus.emit(case.id, "system", "done",
-                   f"Payment executed for {case.id} via Open Payments ({result['status']})",
+                   f"Payment executed for {case.id} via Open Payments ({result['status']}){zwapgrid_note}",
                    payload={"case": case.model_dump(mode="json")})
     return case.model_dump(mode="json")
 
@@ -275,9 +355,12 @@ async def pay_case(case_id: str) -> dict:
 async def list_executed_payments() -> dict:
     """Every payment we've executed, cross-checked live against two
     independent sources: Open Payments' own status endpoint (did the payment
-    rail settle it), and Zwapgrid's single-invoice GET (does the connected
-    accounting system's own reconciliation agree — a read, since Zwapgrid's
-    Accounting API has no write-back to push our confirmation into)."""
+    rail settle it), and Zwapgrid's payments-per-invoice list (did we
+    register a matching payment against the invoice in the connected
+    accounting system). Deliberately NOT Zwapgrid's invoice-level
+    paymentStatus field — confirmed live that it doesn't reflect payments
+    registered this way even when Fortnox itself considers the invoice
+    fully settled, so it would just be misleading here."""
     db = get_db()
     op_client = OpenPaymentsPISClient()
     zwapgrid_client = ZwapgridRealTool()
@@ -293,17 +376,29 @@ async def list_executed_payments() -> dict:
             live_status = None
             error = f"{type(e).__name__}: {e}"
         try:
-            zwapgrid_status = await zwapgrid_client.get_invoice_payment_status(case.claim.invoice_id)
+            zwapgrid_payments = await zwapgrid_client.get_invoice_payments(case.claim.invoice_id)
         except Exception:
-            zwapgrid_status = None  # e.g. ZWAPGRID_CONSENT_ID not set — not this endpoint's concern
+            zwapgrid_payments = None  # e.g. ZWAPGRID_CONSENT_ID not set — not this endpoint's concern
+
+        zwapgrid_found = zwapgrid_payments is not None
+        zwapgrid_total_paid = sum(p.get("amount") or 0 for p in zwapgrid_payments) if zwapgrid_payments else 0
+        zwapgrid_paid = (
+            zwapgrid_found and invoice is not None
+            and zwapgrid_total_paid >= invoice.amount_sek - 0.01  # float tolerance
+        )
         results.append({
             "case_id": case.id,
             "payment_id": case.payment_id,
             "recorded_status": case.payment_status,
             "live_status": live_status,
             "error": error,
-            "zwapgrid_status": zwapgrid_status["status"] if zwapgrid_status else None,
-            "zwapgrid_settlement_date": zwapgrid_status["settlement_date"] if zwapgrid_status else None,
+            # zwapgrid_found=False: this invoice_id isn't a real Zwapgrid
+            # invoice (e.g. a scripted demo scenario never synced from
+            # Zwapgrid). zwapgrid_found=True: it is, and zwapgrid_paid says
+            # whether its registered payments cover the invoice total.
+            "zwapgrid_found": zwapgrid_found,
+            "zwapgrid_paid": zwapgrid_paid,
+            "zwapgrid_total_paid": zwapgrid_total_paid,
             "invoice_id": case.claim.invoice_id,
             "supplier_name": invoice.supplier_name if invoice else None,
             "amount_sek": invoice.amount_sek if invoice else None,

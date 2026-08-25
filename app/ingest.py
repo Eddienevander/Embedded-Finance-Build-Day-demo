@@ -82,13 +82,19 @@ def placeholder_reason(invoice: Invoice) -> str | None:
     return None
 
 
-async def process_invoice(invoice: Invoice, db: Database) -> list[VerificationCase]:
+async def process_invoice(invoice: Invoice, db: Database, force: bool = False) -> list[VerificationCase]:
     """Intake path: quarantine placeholders, then detect claims and either
     auto-approve or spawn one verification case per claim. Returns the created
-    cases (empty on auto-approve or quarantine)."""
+    cases (empty on auto-approve or quarantine).
+
+    `force=True` skips the placeholder check — it's a default recommendation
+    for automatic intake (sync, scripted scenarios), not an unoverridable
+    block. A human deliberately reviewing a specific invoice (e.g. testing
+    the agent pipeline against real-but-malformed sandbox data) can send it
+    through anyway."""
     from app.orchestrator import start_case  # late import to avoid a cycle
 
-    reason = placeholder_reason(invoice)
+    reason = None if force else placeholder_reason(invoice)
     if reason is not None:
         db.insert_invoice(invoice, status="invalid")
         await bus.emit(invoice.id, "system", "done",
