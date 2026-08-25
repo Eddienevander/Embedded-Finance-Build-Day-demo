@@ -15,7 +15,7 @@ def make_invoice(**overrides) -> Invoice:
         supplier_orgnr="556677-8899",
         supplier_name="Nordisk Ställning AB",
         amount_sek=180_000.0,
-        bank_account="BG 123-4567",
+        bank_account="BG 123-4566",
         reference="F2026-1001",
         issued_date=TODAY,
         due_date=TODAY + timedelta(days=30),

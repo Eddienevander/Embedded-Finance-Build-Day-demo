@@ -17,22 +17,24 @@ from app.models import Invoice, SupplierBaseline
 BUYER_NAME = "Bergström Bygg AB"
 
 # name, orgnr, bankgiro, contact_email, avg amount SEK, terms days, invoices/12mo
+# (bankgiro numbers are synthetic but carry VALID mod-10 check digits, so the
+#  bankgirot validation tool treats legitimate suppliers as legitimate)
 SUPPLIERS: list[dict] = [
-    {"name": "Nordisk Ställning AB", "orgnr": "556677-8899", "account": "BG 123-4567",
+    {"name": "Nordisk Ställning AB", "orgnr": "556677-8899", "account": "BG 123-4566",
      "email": "ekonomi@nordiskstallning.se", "avg": 180_000, "terms": 30, "n": 30},
-    {"name": "Svea Kontorsmaterial AB", "orgnr": "556234-1122", "account": "BG 234-5678",
+    {"name": "Svea Kontorsmaterial AB", "orgnr": "556234-1122", "account": "BG 234-5676",
      "email": "faktura@sveakontor.se", "avg": 14_500, "terms": 30, "n": 12},
-    {"name": "Mälardalens El & Automation AB", "orgnr": "556891-3344", "account": "BG 345-6789",
+    {"name": "Mälardalens El & Automation AB", "orgnr": "556891-3344", "account": "BG 345-6787",
      "email": "ekonomi@malardalenel.se", "avg": 92_000, "terms": 30, "n": 14},
-    {"name": "Götaland Grus & Schakt AB", "orgnr": "556455-7788", "account": "BG 456-7890",
+    {"name": "Götaland Grus & Schakt AB", "orgnr": "556455-7788", "account": "BG 456-7897",
      "email": "faktura@gotalandgrus.se", "avg": 240_000, "terms": 45, "n": 11},
-    {"name": "Björk & Söner Snickeri AB", "orgnr": "556712-9911", "account": "BG 567-8901",
+    {"name": "Björk & Söner Snickeri AB", "orgnr": "556712-9911", "account": "BG 567-8909",
      "email": "info@bjorksoner.se", "avg": 65_000, "terms": 30, "n": 13},
-    {"name": "Lappland Logistik AB", "orgnr": "556388-2255", "account": "BG 678-9012",
+    {"name": "Lappland Logistik AB", "orgnr": "556388-2255", "account": "BG 678-9010",
      "email": "ekonomi@lapplandlogistik.se", "avg": 38_000, "terms": 20, "n": 15},
-    {"name": "Kungsholmen Kontorsservice AB", "orgnr": "556990-4433", "account": "BG 789-0123",
+    {"name": "Kungsholmen Kontorsservice AB", "orgnr": "556990-4433", "account": "BG 789-0122",
      "email": "faktura@kungsholmenkontor.se", "avg": 8_200, "terms": 30, "n": 12},
-    {"name": "Öresund Verktygsuthyrning AB", "orgnr": "556533-6677", "account": "BG 890-1234",
+    {"name": "Öresund Verktygsuthyrning AB", "orgnr": "556533-6677", "account": "BG 890-1233",
      "email": "ekonomi@oresundverktyg.se", "avg": 450_000, "terms": 60, "n": 10},
 ]
 
@@ -47,13 +49,13 @@ ATTACK_CONTACT = "ekonomi@nordisk-stallning.com"  # lookalike of the real domain
 # ghost_supplier: fabricated company, orgnr unknown at Bolagsverket.
 GHOST_ORGNR = "559999-1234"
 GHOST_NAME = "Skandinavisk Byggpartner AB"
-GHOST_ACCOUNT = "BG 902-6644"
+GHOST_ACCOUNT = "BG 902-6642"
 GHOST_CONTACT = "faktura@skandinaviskbyggpartner.se"
 
 # legit_bank_change: real supplier really changed banks; the registry confirms
 # ownership and web_intel finds a dated announcement.
 LEGIT_SUPPLIER = SUPPLIERS[1]  # Svea Kontorsmaterial AB
-LEGIT_NEW_ACCOUNT = "BG 5678-9012"
+LEGIT_NEW_ACCOUNT = "BG 5678-9019"
 LEGIT_ANNOUNCEMENT_DATE = "2026-08-01"
 
 CLEAN_SUPPLIER = SUPPLIERS[2]  # Mälardalens El & Automation AB

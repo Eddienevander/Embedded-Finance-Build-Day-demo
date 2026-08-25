@@ -49,6 +49,7 @@ def build_registry(db: Database, mock: bool, real_integrations: bool = False) ->
     *_real.py stub finished. Add Open Payments here the same way once it's
     actually implemented."""
     from app.tools.account_registry import MockAccountRegistryTool
+    from app.tools.bankgirot import MockBankgirotTool
     from app.tools.bolagsverket import BolagsverketRealTool, MockBolagsverketTool
     from app.tools.invoice_archive import InvoiceArchiveTool
     from app.tools.payment_history import MockPaymentHistoryTool
@@ -66,6 +67,7 @@ def build_registry(db: Database, mock: bool, real_integrations: bool = False) ->
             MockAccountRegistryTool(),  # MOCK ONLY — this API doesn't exist (that's the pitch)
             MockWebIntelTool(),
             InvoiceArchiveTool(db),  # always real: queries our own SQLite
+            MockBankgirotTool(),  # mod-10 validation is real; owner lookup mocked
         ])
     return ToolRegistry([
         BolagsverketRealTool(),
@@ -73,4 +75,5 @@ def build_registry(db: Database, mock: bool, real_integrations: bool = False) ->
         MockAccountRegistryTool(),  # no real implementation exists — see README
         WebIntelRealTool(),
         InvoiceArchiveTool(db),
+        MockBankgirotTool(),  # real adapter = parse the public search (see bankgirot.py)
     ])
