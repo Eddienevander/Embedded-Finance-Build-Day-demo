@@ -261,7 +261,22 @@
   .ev.legit { border-left-color: var(--green); }
   .ev .tag { font-family: var(--mono); font-size: 12px; color: var(--muted); }
   .ev .tag .sup-fraud { color: var(--red); } .ev .tag .sup-legit { color: var(--green); }
-  .debate { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* stacked, not side-by-side: two columns in a 420px panel squeeze bullets
+     into one-word lines */
+  .debate { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .pts { list-style: none; display: flex; flex-direction: column; gap: 7px; margin-top: 2px; }
+  .pts li { padding-left: 14px; position: relative; }
+  .pts li::before { content: "·"; position: absolute; left: 2px; color: var(--muted);
+                    font-weight: 700; }
+  .pts li.lead { font-weight: 600; }
+  details.xp summary { cursor: pointer; list-style: none; }
+  details.xp summary::-webkit-details-marker { display: none; }
+  details.xp summary::after { content: "⌄ more"; font-size: 11.5px; color: var(--blue);
+                              margin-left: 6px; white-space: nowrap; letter-spacing: .04em; }
+  details.xp[open] summary::after { content: "⌃ less"; }
+  details.xp .xf { display: none; }
+  details.xp[open] .xs { display: none; }
+  details.xp[open] .xf { display: inline; }
   .arg { border-radius: 8px; padding: 10px 12px; font-size: 15px; line-height: 1.5; background: var(--panel2); }
   .arg.skeptic { border: 1px solid #E3C6BD; } .arg.advocate { border: 1px solid #CBD9C5; }
   .arg h4 { font-size: 13px; margin-bottom: 5px; }
@@ -466,6 +481,26 @@ function toolLabel(tool) {
 // bankgiro/plusgiro number Open Payments could actually pay to?
 function hasGiroAccount(account) {
   return /\d{2,4}-\d{4,7}/.test(account || "");
+}
+
+// Short first, depth on demand: a bullet longer than `cut` renders truncated
+// with a native <details> that swaps in the full text on click (no duplication).
+function clip(text, cut = 88) {
+  const t = String(text || "").trim();
+  if (t.length <= cut) return esc(t);
+  let head = t.slice(0, cut);
+  const sp = head.lastIndexOf(" ");
+  if (sp > cut * 0.6) head = head.slice(0, sp);
+  return `<details class="xp"><summary><span class="xs">${esc(head)}…</span>` +
+         `<span class="xf">${esc(t)}</span></summary></details>`;
+}
+
+function bullet(text, lead = false) {
+  return `<li${lead ? ' class="lead"' : ""}>${clip(text)}</li>`;
+}
+
+function sentences(text) {
+  return String(text || "").split(/(?<=[.!?])\s+(?=[A-ZÅÄÖ])/).map(t => t.trim()).filter(Boolean);
 }
 
 let mode = "live";           // "live" hits the agents, "replay" plays a recording
@@ -1088,11 +1123,15 @@ function renderVerdict(c) {
 
   const finalArgs = (c.arguments || []).slice(-2);
   const debateHtml = finalArgs.length ? `
-    <div class="debate">${finalArgs.map(a => `
+    <div class="debate">${finalArgs.map(a => {
+      const points = [a.strongest_point,
+                      ...(a.points || []).filter(pt => pt !== a.strongest_point)];
+      return `
       <div class="arg ${a.stance}">
-        <h4>${a.stance === "skeptic" ? "☠ Skeptic" : "✓ Advocate"}: strongest point</h4>
-        ${esc(a.strongest_point)}
-      </div>`).join("")}
+        <h4>${a.stance === "skeptic" ? "☠ Skeptic" : "✓ Advocate"}</h4>
+        <ul class="pts">${points.map((pt, i) => bullet(pt, i === 0)).join("")}</ul>
+      </div>`;
+    }).join("")}
     </div>` : "";
 
   let verdictHtml = "";
@@ -1106,8 +1145,8 @@ function renderVerdict(c) {
       <div class="verdict-box">
         <span class="decision ${v.decision}">${v.decision.replace("_", " ").toUpperCase()}</span>
         ${conf}
-        <p>${esc(v.reasoning)}</p>
-        <div class="action">→ ${esc(v.recommended_action)}</div>
+        <ul class="pts" style="margin-top:10px">${sentences(v.reasoning).map(t => bullet(t)).join("")}</ul>
+        <div class="action">→ ${clip(v.recommended_action, 110)}</div>
       </div>`;
   } else if (c.status === "error") {
     verdictHtml = `<div class="verdict-box"><span class="decision block">PIPELINE ERROR</span>
