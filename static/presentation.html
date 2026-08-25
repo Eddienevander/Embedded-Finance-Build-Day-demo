@@ -50,10 +50,11 @@
   .slide {
     position: absolute; inset: 0; padding: 96px 72px 72px;
     display: flex; flex-direction: column; justify-content: center;
-    opacity: 0; visibility: hidden; transform: translateY(14px);
-    transition: opacity .35s ease, transform .35s ease, visibility .35s;
+    opacity: 0; visibility: hidden; transform: translateY(12px); z-index: 1;
+    transition: opacity .3s ease, transform .3s ease, visibility 0s linear .3s;
   }
-  .slide.active { opacity: 1; visibility: visible; transform: none; }
+  .slide.active { opacity: 1; visibility: visible; transform: none; z-index: 2;
+                  transition: opacity .3s ease, transform .3s ease, visibility 0s; }
   @media (prefers-reduced-motion: reduce) {
     .slide { transition: none; transform: none; }
     #progress { transition: none; }
@@ -325,14 +326,14 @@
         <text class="g" y="7" fill="#22242A" style="font-family:var(--display);font-size:15px;font-weight:700">HUMAN</text>
         <text y="60">DECIDES</text></g>
       <!-- ambient pulses riding the lanes -->
-      <circle class="amdot" cx="-40" cy="-40" r="5.5" fill="#5E86A8">
-        <animateMotion dur="3.2s" repeatCount="indefinite" path="M 188 118 H 342"/></circle>
-      <circle class="amdot" cx="-40" cy="-40" r="5" fill="#A84432">
-        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 104 C 472 62, 512 54, 566 54"/></circle>
-      <circle class="amdot" cx="-40" cy="-40" r="5" fill="#6E9068">
-        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 132 C 472 174, 512 182, 566 182"/></circle>
-      <circle class="amdot" cx="-40" cy="-40" r="5" fill="#8B7A9B">
-        <animateMotion dur="3.2s" begin="2.2s" repeatCount="indefinite" path="M 634 54 C 694 54, 730 70, 772 104"/></circle>
+      <circle class="amdot" opacity="0" cx="-40" cy="-40" r="5.5" fill="#5E86A8">
+        <animateMotion dur="3.2s" repeatCount="indefinite" path="M 188 118 H 342"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" repeatCount="indefinite"/></circle>
+      <circle class="amdot" opacity="0" cx="-40" cy="-40" r="5" fill="#A84432">
+        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 104 C 472 62, 512 54, 566 54"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" begin="1.1s" repeatCount="indefinite"/></circle>
+      <circle class="amdot" opacity="0" cx="-40" cy="-40" r="5" fill="#6E9068">
+        <animateMotion dur="3.2s" begin="1.1s" repeatCount="indefinite" path="M 414 132 C 472 174, 512 182, 566 182"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" begin="1.1s" repeatCount="indefinite"/></circle>
+      <circle class="amdot" opacity="0" cx="-40" cy="-40" r="5" fill="#8B7A9B">
+        <animateMotion dur="3.2s" begin="2.2s" repeatCount="indefinite" path="M 634 54 C 694 54, 730 70, 772 104"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" begin="2.2s" repeatCount="indefinite"/></circle>
     </svg>
   </div>
   <div class="agcap">
@@ -483,28 +484,6 @@
           <td><span class="chip solved">SOLVED</span></td></tr>
     </tbody>
   </table>
-</div></section>
-
-<!-- 10 · engineering -->
-<section class="slide"><div class="inner">
-  <h2>Built to fail on purpose.</h2>
-  <p class="lede" style="margin-bottom:34px">A live agent demo is a trust exercise. We spent real
-    engineering on the failure paths, because that is what production fraud infrastructure is.</p>
-  <div class="cols3">
-    <div class="card"><h3>Replay insurance</h3><p>Every scenario recorded as a real heartbeat
-      stream, re-playable with original pacing and <b style="color:var(--text)">zero network</b>.
-      Dead venue wifi cannot kill this demo.</p></div>
-    <div class="card"><h3>Never hangs</h3><p>Hard timeouts on every model call; a failed case goes
-      visibly red with a re-run button: in place, same case id, no queue clutter.</p></div>
-    <div class="card"><h3>Pre-flight</h3><p>One tiny model call at boot. A bad credential fails in
-      five seconds with instructions, not twenty seconds into the headline case.</p></div>
-    <div class="card"><h3>Schema-enforced verdicts</h3><p>Structured outputs end-to-end: the
-      arbiter cannot return prose, only a valid verdict.</p></div>
-    <div class="card"><h3>Deterministic first</h3><p>The detector is plain code.
-      LLMs argue about evidence; they never gatekeep intake.</p></div>
-    <div class="card"><h3>29 tests · 1 command</h3><p><span class="mono">./run.sh</span> on a clean
-      machine: sync, seed, pre-flight, serve. No frameworks, no build step.</p></div>
-  </div>
 </div></section>
 
 <!-- 11 · the pitch -->
