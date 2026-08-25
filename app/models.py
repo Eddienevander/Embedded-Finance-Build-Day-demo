@@ -88,6 +88,8 @@ class VerificationCase(BaseModel):
     arguments: list[Argument] = []
     verdict: Verdict | None = None
     human_decision: str | None = None  # approve / block, set via UI
+    payment_status: str | None = None  # set once /pay executes via Open Payments
+    payment_id: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
 
