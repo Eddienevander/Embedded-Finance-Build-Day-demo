@@ -311,9 +311,10 @@ class PayBody(BaseModel):
 async def pay_case(case_id: str, body: PayBody | None = None) -> dict:
     """Execute the case's payment via Open Payments Europe's PIS (sandbox
     decoupled flow — see app/tools/openpayments_real.py), only once a human
-    has approved. On settlement, marks the invoice paid in our own DB —
-    Zwapgrid has no write-back for this (verified: its Accounting API is
-    GET/POST-only, no PATCH on supplier invoices)."""
+    has approved. On settlement, marks the invoice paid in our own DB and
+    registers the payment back in Zwapgrid/Fortnox (best effort — only
+    invoices booked at creation accept payment registrations; Fortnox
+    rejects unbooked ones with "Fakturan är inte bokförd")."""
     case = _find_case(case_id)
     if case is None:
         raise HTTPException(404, f"no such case: {case_id}")

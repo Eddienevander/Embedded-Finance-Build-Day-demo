@@ -47,6 +47,11 @@ def _invoice_payload(supplier: dict, amount: float, reference: str,
         "reference": reference,
         "issueDate": today.isoformat(),
         "dueDate": (today + timedelta(days=terms_days)).isoformat(),
+        # booked at creation: Fortnox refuses to register payments against an
+        # unbooked invoice ("Fakturan är inte bokförd", code 2001322), and the
+        # API has no post-hoc booking operation — so an unbooked invoice can
+        # never show as paid in the accounting system.
+        "bookedInvoiceIndicator": True,
         "documentCurrencyCode": {"currencyId": "SEK"},
         "notes": [{"text": note}],
         "legalMonetaryTotal": {
