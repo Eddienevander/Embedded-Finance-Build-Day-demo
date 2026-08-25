@@ -24,7 +24,13 @@
   }
   header h1 { font-size: 20px; letter-spacing: .3px; }
   header .sub { color: var(--muted); font-size: 14px; }
-  header .conn { margin-left: auto; font-size: 14px; color: var(--muted); }
+  #btn-real-integrations {
+    margin-left: auto; font-size: 13px; font-weight: 600; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid var(--border); background: var(--panel2);
+    color: var(--muted); cursor: pointer;
+  }
+  #btn-real-integrations.on { color: var(--green); border-color: var(--green); }
+  header .conn { font-size: 14px; color: var(--muted); }
   header .conn.ok::before { content: "● "; color: var(--green); }
   header .conn.down::before { content: "● "; color: var(--red); }
 
@@ -168,6 +174,7 @@
 <header>
   <h1>Trust Layer</h1>
   <span class="sub">adversarial multi-agent verification · Bergström Bygg AB</span>
+  <button id="btn-real-integrations" onclick="toggleRealIntegrations()" title="Swap payment_history (and future adapters) between seeded mock data and live APIs — Zwapgrid today, Open Payments later">○ Seeded data</button>
   <span id="conn" class="conn down">connecting…</span>
 </header>
 <main>
@@ -297,6 +304,28 @@ async function syncZwapgrid() {
   } catch (e) {
     out.textContent = `Error: ${e}`;
   }
+}
+
+function renderRealIntegrations(enabled) {
+  const btn = $("#btn-real-integrations");
+  btn.classList.toggle("on", enabled);
+  btn.textContent = enabled ? "● Real integrations" : "○ Seeded data";
+}
+
+async function toggleRealIntegrations() {
+  const enabled = !$("#btn-real-integrations").classList.contains("on");
+  const res = await fetch("/demo/real-integrations", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  const body = await res.json();
+  renderRealIntegrations(body.real_integrations);
+}
+
+async function loadRealIntegrations() {
+  const body = await (await fetch("/demo/real-integrations")).json();
+  renderRealIntegrations(body.real_integrations);
 }
 
 async function refreshCases() {
@@ -513,6 +542,7 @@ function connect() {
 
 connect();
 refreshCases();
+loadRealIntegrations();
 loadRecordings();
 </script>
 </body>

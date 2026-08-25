@@ -19,14 +19,33 @@ from app.tools.base import ToolRegistry, build_registry
 
 CASES: dict[str, VerificationCase] = {}
 _TASKS: set[asyncio.Task] = set()
-_registry: ToolRegistry | None = None
+_registries: dict[bool, ToolRegistry] = {}
+# Runtime toggle (the dashboard's "real integrations" button), separate from
+# MOCK_MODE — lets a case use genuinely-wired live adapters (Zwapgrid today)
+# without a restart. Seeded from the env var so an existing .env still works
+# as the startup default.
+_real_integrations: bool = config.ZWAPGRID_LIVE_PAYMENT_HISTORY
 
 
 def get_registry(db: Database) -> ToolRegistry:
-    global _registry
-    if _registry is None:
-        _registry = build_registry(db, mock=config.MOCK_MODE)
-    return _registry
+    """Registries are cached per mode (not just once) so each mode's tools —
+    e.g. ZwapgridPaymentHistoryTool's invoice cache — keep their state across
+    calls instead of resetting every time the toggle flips."""
+    if _real_integrations not in _registries:
+        _registries[_real_integrations] = build_registry(
+            db, mock=config.MOCK_MODE, real_integrations=_real_integrations
+        )
+    return _registries[_real_integrations]
+
+
+def real_integrations_enabled() -> bool:
+    return _real_integrations
+
+
+def set_real_integrations(enabled: bool) -> bool:
+    global _real_integrations
+    _real_integrations = enabled
+    return _real_integrations
 
 
 def load_persisted_cases(db: Database) -> None:

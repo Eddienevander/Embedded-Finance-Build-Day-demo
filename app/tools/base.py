@@ -41,8 +41,13 @@ class ToolRegistry:
         return await tool.lookup(**validated.model_dump())
 
 
-def build_registry(db: Database, mock: bool) -> ToolRegistry:
-    from app import config
+def build_registry(db: Database, mock: bool, real_integrations: bool = False) -> ToolRegistry:
+    """`mock` picks the overall tool set (scripted-demo vs "every adapter real").
+    `real_integrations` is a narrower, independent switch: swap in whichever
+    adapters are genuinely wired to a live API today — currently just Zwapgrid
+    for `payment_history` — regardless of `mock`, without needing every other
+    *_real.py stub finished. Add Open Payments here the same way once it's
+    actually implemented."""
     from app.tools.account_registry import MockAccountRegistryTool
     from app.tools.bolagsverket import BolagsverketRealTool, MockBolagsverketTool
     from app.tools.invoice_archive import InvoiceArchiveTool
@@ -50,12 +55,11 @@ def build_registry(db: Database, mock: bool) -> ToolRegistry:
     from app.tools.web_intel import MockWebIntelTool, WebIntelRealTool
     from app.tools.zwapgrid_real import ZwapgridPaymentHistoryTool
 
+    payment_history = (
+        ZwapgridPaymentHistoryTool() if real_integrations else MockPaymentHistoryTool(db)
+    )
+
     if mock:
-        payment_history = (
-            ZwapgridPaymentHistoryTool()
-            if config.ZWAPGRID_LIVE_PAYMENT_HISTORY
-            else MockPaymentHistoryTool(db)
-        )
         return ToolRegistry([
             MockBolagsverketTool(),
             payment_history,
@@ -65,9 +69,7 @@ def build_registry(db: Database, mock: bool) -> ToolRegistry:
         ])
     return ToolRegistry([
         BolagsverketRealTool(),
-        # Zwapgrid-backed, not Open Payments (OpenPaymentsRealTool needs OAuth2
-        # creds we don't have) — see ZwapgridPaymentHistoryTool's docstring.
-        ZwapgridPaymentHistoryTool(),
+        payment_history,
         MockAccountRegistryTool(),  # no real implementation exists — see README
         WebIntelRealTool(),
         InvoiceArchiveTool(db),

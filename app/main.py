@@ -16,7 +16,14 @@ from app.bus import bus
 from app.db import get_db
 from app.ingest import process_invoice
 from app.models import Invoice
-from app.orchestrator import CASES, get_registry, load_persisted_cases, rerun_case
+from app.orchestrator import (
+    CASES,
+    get_registry,
+    load_persisted_cases,
+    real_integrations_enabled,
+    rerun_case,
+    set_real_integrations,
+)
 from app.replay import available_recordings, has_recording, replay_scenario
 from app.seed import SCENARIOS, make_scenario_invoices
 from app.tools.zwapgrid_real import ZwapgridRealTool
@@ -194,10 +201,28 @@ async def rerun(case_id: str) -> dict:
     return case.model_dump(mode="json")
 
 
+class RealIntegrationsBody(BaseModel):
+    enabled: bool
+
+
+@app.get("/demo/real-integrations")
+async def get_real_integrations() -> dict:
+    return {"real_integrations": real_integrations_enabled()}
+
+
+@app.post("/demo/real-integrations")
+async def toggle_real_integrations(body: RealIntegrationsBody) -> dict:
+    """Flip which evidence tools are genuinely wired to a live API (currently
+    just Zwapgrid, for payment_history) vs seeded/mocked, for every case from
+    here on — takes effect immediately, no restart."""
+    return {"real_integrations": set_real_integrations(body.enabled)}
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"ok": True, "mock_mode": config.MOCK_MODE, "model": config.MODEL,
-            "recordings": available_recordings()}
+            "recordings": available_recordings(),
+            "real_integrations": real_integrations_enabled()}
 
 
 @app.websocket("/ws")
