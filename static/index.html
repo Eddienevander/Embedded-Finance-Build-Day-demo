@@ -125,7 +125,7 @@
   .inv-row .meta > span:first-child { white-space: nowrap; }
   .chip { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
           white-space: nowrap; flex: none; }
-  .chip.auto_approved, .chip.approved { background: #E7EDE2; color: var(--green); }
+  .chip.auto_approved, .chip.approved, .chip.paid { background: #E7EDE2; color: var(--green); }
   .chip.under_review { background: #EDF1F5; color: var(--blue); }
   .chip.blocked { background: #F3E2DC; color: var(--red); }
   .chip.invalid, .chip.received { background: #ECE9E3; color: var(--muted); }
@@ -681,6 +681,7 @@ async function refreshCases() {
 const STATUS_LABEL = {
   auto_approved: "AUTO-APPROVED", under_review: "UNDER REVIEW", blocked: "BLOCKED",
   approved: "APPROVED", invalid: "QUARANTINED", received: "RECEIVED", fetched: "FETCHED",
+  paid: "⚡ PAID",
 };
 
 let _invoiceRefreshTimer = null;

@@ -115,13 +115,14 @@ async def submit_invoice(invoice: Invoice) -> dict:
 
 
 @app.get("/invoices")
-async def list_invoices(include_paid: bool = False) -> list[dict]:
-    """The invoice inbox: everything except seeded history, newest first, with
-    the ids of any verification cases spawned for each invoice."""
+async def list_invoices(include_historical: bool = False) -> list[dict]:
+    """The invoice list: everything except seeded backfill, newest first, with
+    the ids of any verification cases spawned for each invoice. Invoices paid
+    out through the app (status 'paid') are always included."""
     cases_by_invoice: dict[str, list[str]] = {}
     for case in CASES.values():
         cases_by_invoice.setdefault(case.claim.invoice_id, []).append(case.id)
-    rows = get_db().list_invoices(exclude_statuses=() if include_paid else ("paid",))
+    rows = get_db().list_invoices(exclude_statuses=() if include_historical else ("historical",))
     return [{**row, "case_ids": cases_by_invoice.get(row["id"], [])} for row in rows]
 
 

@@ -101,7 +101,9 @@ def seed(db: Database) -> None:
                 reference=f"F{issued.year}-{rng.randint(1000, 9999)}",
                 due_date=due, issued_date=issued, contact_email=s["email"],
             )
-            db.insert_invoice(inv, status="paid")
+            # "historical": seeded backfill, hidden from the inbox. Not "paid",
+            # which is reserved for real payouts executed through the app.
+            db.insert_invoice(inv, status="historical")
             # occasional lateness
             paid_at = due + timedelta(days=rng.choice([0, 0, 0, 1, 2, -1, 8]))
             db.add_payment(s["orgnr"], inv.id, amount, s["account"], paid_at)
