@@ -77,7 +77,7 @@ class MockBankgirotTool(EvidenceTool):
         if digits is None:
             return {
                 "account": account, "is_bankgiro": False,
-                "note": "Not a bankgiro number (IBAN or other format) — "
+                "note": "Not a bankgiro number (IBAN or other format), so "
                         "Bankgirot cannot say anything about it.",
             }
         result = {

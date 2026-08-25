@@ -15,6 +15,16 @@ from app.tools.base import ToolRegistry
 
 M = TypeVar("M", bound=BaseModel)
 
+# Shared writing rules appended to every agent's system prompt. The outputs are
+# read on a projector by a mixed audience, so they must scan, not impress.
+STYLE_RULES = """
+WRITING STYLE (mandatory for every text field you produce):
+- Short sentences. Plain words. One idea per sentence.
+- No em dashes and no en dashes; use commas, colons or a new sentence instead.
+- Keep numbers, names, account strings and dates exact.
+- No filler ("it is worth noting", "importantly"), no hedging chains.
+"""
+
 _client: AsyncAnthropic | None = None
 
 

@@ -237,7 +237,7 @@
       <div class="frow"><span class="k">Reference</span><span class="v ok">correct</span></div>
       <div class="frow"><span class="k">Layout, logo, contact name</span><span class="v ok">identical</span></div>
       <div class="frow bad"><span class="k">Bank account</span><span class="v">SE45 5000 0000 0583 9825 7466</span></div>
-      <div class="note">"Vi har bytt bank — vänligen använd vårt nya konto."</div>
+      <div class="note">"Vi har bytt bank, vänligen använd vårt nya konto."</div>
     </div>
     <div>
       <div class="stat"><div class="n">232 862</div>
@@ -256,12 +256,12 @@
 <section class="slide"><div class="inner">
   <h2>Fraud lives in change.</h2>
   <p class="lede">Paying a known supplier the known way is safe. The loss happens on the day
-    something <b>changes</b> — and no single party can verify the change alone.
+    something <b>changes</b>, and no single party can verify the change alone.
     So Trust Layer diffs every incoming invoice against the supplier baseline, deterministically,
     with zero LLM calls. Every difference becomes a <b>change-of-state claim</b>:</p>
   <div class="cols3" style="margin-top:34px; grid-template-columns: repeat(4, 1fr);">
     <div class="card"><h3>bank_account_changed</h3><p>the headline attack, and the honest bank switch</p></div>
-    <div class="card"><h3>new_supplier</h3><p>no history at all — ghost companies live here</p></div>
+    <div class="card"><h3>new_supplier</h3><p>no history at all: ghost companies live here</p></div>
     <div class="card"><h3>terms_changed</h3><p>payment terms drifting beyond 2× the norm</p></div>
     <div class="card"><h3>duplicate_financing</h3><p>the same receivable submitted twice</p></div>
   </div>
@@ -282,7 +282,7 @@
     <div class="stage s-arb"><div class="who"><span class="dot"></span>Arbiter</div>
       <p>Weighs the debate into a schema-enforced verdict: approve · block · verify, plus a safe next action.</p></div>
     <div class="stage s-hum"><div class="who"><span class="dot"></span>Human</div>
-      <p>Approves or blocks with the full evidence in front of them — and approval
+      <p>Approves or blocks with the full evidence in front of them, and approval
       <b style="color:var(--text)">executes the payment for real</b> over Open Payments PIS.</p></div>
   </div>
   <div class="offramp">↳ no claims? the invoice never enters the loop: auto-approved in &lt;1s</div>
@@ -297,19 +297,19 @@
     <div class="card"><h3>zwapgrid <span class="chip live">LIVE API</span></h3>
       <p>Invoice interchange + payment history over the real Accounting API. Runtime toggle: mock ↔ live, mid-demo.</p></div>
     <div class="card"><h3>bankgirot <span class="chip real">REAL · PARSED</span></h3>
-      <p>Mod-10 check-digit validation offline (a failing number was never issued). Owner lookup parses public data — Bankgirot has no API.</p></div>
+      <p>Mod-10 check-digit validation offline (a failing number was never issued). Owner lookup parses public data, because Bankgirot has no API.</p></div>
     <div class="card"><h3>account_registry <span class="chip pitch">THE PITCH</span></h3>
-      <p>"Who owns this account?" Mocked — because Sweden has no such registry. Norway does. More in a moment.</p></div>
+      <p>"Who owns this account?" Mocked, because Sweden covers only bankgiro numbers today. Norway covers accounts. More in a moment.</p></div>
     <div class="card"><h3>open_payments <span class="chip live">LIVE API</span></h3>
       <p>Real PSD2 payment execution: an approved case pays out through the
       Payment Initiation API (swedish-giro + decoupled SCA, sandbox).</p></div>
     <div class="card"><h3>bolagsverket <span class="chip stub">STUB READY</span></h3>
       <p>Company status, address, registration by orgnr. Free public API; onboarding registration pending.</p></div>
     <div class="card"><h3>web_intel + invoice_archive <span class="chip mock">MOCK / REAL</span></h3>
-      <p>Public announcements (mocked) and our own ledger (real SQLite) — the field-by-field memory of the relationship.</p></div>
+      <p>Public announcements (mocked) and our own ledger (real SQLite): the field-by-field memory of the relationship.</p></div>
   </div>
   <p class="footline">Every source sits behind one <span class="mono">EvidenceTool</span> interface.
-    Mock and real implementations swap per tool, at runtime — the demo runs offline, the
+    Mock and real implementations swap per tool, at runtime: the demo runs offline, the
     architecture runs in production.</p>
 </div></section>
 
@@ -324,22 +324,22 @@
         Live payment history answers the Investigator's questions mid-case.</p>
       <p style="margin-bottom:12px"><b style="color:var(--text)">What we found on the wire:</b>
         the e-invoice feed carries <b style="color:var(--text)">no authoritative bank-account
-        field</b> — payment routing hides in free-text notes. An account number off the wire is an
+        field</b>. Payment routing hides in free-text notes. An account number off the wire is an
         unverified claim, so it goes <i>through</i> this pipeline, never around it.</p>
-      <p>Sandbox seed rows (0.00 SEK, orgnr "1") are quarantined at intake instead of
-        burning a minute of agents.</p>
+      <p>And it writes both ways: demo invoices are pushed back into the sandbox over
+        the same API, so the sync pulls real data end to end.</p>
     </div>
     <div class="card">
       <h3>Open Payments <span class="chip live">LIVE</span></h3>
       <p style="margin-bottom:12px">Real PSD2 Payment Initiation: OAuth2 client credentials,
-        a <span class="mono">swedish-giro</span> payment (bankgiro-routed — every supplier
+        a <span class="mono">swedish-giro</span> payment (bankgiro-routed: every supplier
         account here already is one), decoupled SCA that finalises in sandbox, and status
         polled to settlement.</p>
       <p style="margin-bottom:12px"><b style="color:var(--text)">Why it matters:</b> the loop
-        closes. A verdict is not a report — an approved case <b style="color:var(--text)">
+        closes. A verdict is not a report: an approved case <b style="color:var(--text)">
         actually pays</b>, and a blocked one actually does not.</p>
       <p>Stated gap: no write-back to the supplier's own accounting system ("paid" lives in
-        our ledger; Zwapgrid's API is read/create-only — verified, not guessed).</p>
+        our ledger; Zwapgrid's API is read/create-only, verified rather than guessed).</p>
     </div>
   </div>
 </div></section>
@@ -355,16 +355,16 @@
   </div>
   <div class="cols">
     <div class="argue skeptic"><h3>SKEPTIC</h3>
-      "The receiving IBAN is owned by a private individual, not by Nordisk Ställning AB —
-      and it was opened nineteen days ago, while the invoice claims a company-wide bank switch."</div>
+      "The receiving IBAN is owned by a private individual, not by Nordisk Ställning AB.
+      It was opened nineteen days ago, while the invoice claims a company-wide bank switch."</div>
     <div class="argue advocate"><h3>ADVOCATE</h3>
       "The proper remedy is out-of-band verification through the historically verified
-      contact channel — protect the supplier relationship, do not just drop the payment."</div>
+      contact channel. Protect the supplier relationship, do not just drop the payment."</div>
   </div>
   <div class="verdictbar">
     <span class="dec">BLOCK · 95%</span>
     <span class="act">"Contact the supplier via the previously known channel
-      <b>ekonomi@nordiskstallning.se</b> — never the contact details printed on the suspicious
+      <b>ekonomi@nordiskstallning.se</b>, never the contact details printed on the suspicious
       invoice, because a fraudster controls those."</span>
   </div>
 </div></section>
@@ -382,7 +382,7 @@
       <tr><td>Ghost supplier</td><td class="mono">fabricated orgnr, not found at Bolagsverket, zero history</td>
           <td class="vd block">BLOCK · 92%</td><td class="mono">~53 s</td></tr>
       <tr class="hl"><td>Legit bank change</td><td class="mono">registry confirms the new account + dated public announcement</td>
-          <td class="vd verify">VERIFY · 82%</td><td class="mono">~57 s</td></tr>
+          <td class="vd verify">SENT TO A HUMAN</td><td class="mono">~57 s</td></tr>
       <tr><td>Double financing</td><td class="mono">same receivable twice: first sails through, duplicate caught</td>
           <td class="vd block">BLOCK · 90%</td><td class="mono">~64 s</td></tr>
     </tbody>
@@ -399,7 +399,7 @@
     <thead><tr><th>From the Build Day packet</th><th>In Trust Layer</th><th>Status</th></tr></thead>
     <tbody>
       <tr><td>"An invoice from a supplier they have paid thirty times before… one field has changed"</td>
-          <td class="mono">the headline scenario, verbatim — 30 seeded payments, one changed field</td>
+          <td class="mono">the headline scenario, verbatim: 30 seeded payments, one changed field</td>
           <td><span class="chip solved">SOLVED</span></td></tr>
       <tr><td>"The invoice that does not exist"</td>
           <td class="mono">ghost_supplier: orgnr unknown, no history, no web presence</td>
@@ -408,10 +408,10 @@
           <td class="mono">duplicate_financing claim on the second submission</td>
           <td><span class="chip solved">SOLVED</span></td></tr>
       <tr><td>"What does manipulated bank or ERP data look like, and what would catch it?"</td>
-          <td class="mono">the Zwapgrid no-account-field gap + placeholder quarantine + mod-10 validation</td>
+          <td class="mono">the Zwapgrid no-account-field gap + mod-10 check-digit validation</td>
           <td><span class="chip solved">SOLVED</span></td></tr>
       <tr><td>"Two financiers are looking at the same receivable"</td>
-          <td class="mono">hashed cross-financier receivables registry (MonetaGo precedent) — prototype validated at BLOCK 92%</td>
+          <td class="mono">hashed cross-financier receivables registry (MonetaGo precedent), prototype validated at BLOCK 92%</td>
           <td><span class="chip proto">PROTOTYPED</span></td></tr>
       <tr><td>"When the bank does not return a holder name, say so, rather than presenting a blank as a fact" (Problem 1)</td>
           <td class="mono">every tool returns found:false + flags; nothing renders a blank as truth</td>
@@ -433,12 +433,12 @@
       stream, re-playable with original pacing and <b style="color:var(--text)">zero network</b>.
       Dead venue wifi cannot kill this demo.</p></div>
     <div class="card"><h3>Never hangs</h3><p>Hard timeouts on every model call; a failed case goes
-      visibly red with a re-run button — in place, same case id, no queue clutter.</p></div>
+      visibly red with a re-run button: in place, same case id, no queue clutter.</p></div>
     <div class="card"><h3>Pre-flight</h3><p>One tiny model call at boot. A bad credential fails in
       five seconds with instructions, not twenty seconds into the headline case.</p></div>
     <div class="card"><h3>Schema-enforced verdicts</h3><p>Structured outputs end-to-end: the
       arbiter cannot return prose, only a valid verdict.</p></div>
-    <div class="card"><h3>Deterministic first</h3><p>The detector and quarantine are plain code.
+    <div class="card"><h3>Deterministic first</h3><p>The detector is plain code.
       LLMs argue about evidence; they never gatekeep intake.</p></div>
     <div class="card"><h3>29 tests · 1 command</h3><p><span class="mono">./run.sh</span> on a clean
       machine: sync, seed, pre-flight, serve. No frameworks, no build step.</p></div>
@@ -457,16 +457,19 @@
     </div>
     <div class="card" style="border-top: 3px solid var(--red)">
       <h3>Sweden <span class="chip pitch">THE GAP</span></h3>
-      <p style="font-size:17px">No equivalent. IMY's sandbox with SEB, Nordea, Swedbank and
-        Handelsbanken concluded this data sharing needs <b style="color:var(--text)">legislative
-        change</b> (IMY-2024-14275, May 2025). Meanwhile: 19-day-old private accounts receive
-        six-figure supplier payments.</p>
+      <p style="font-size:17px">The institution already exists: <b style="color:var(--text)">
+        Bankgirocentralen</b> maps bankgiro numbers to owners today, and its public number
+        search proves it. But coverage stops at bankgiro aliases: no accounts, no IBANs, no
+        API. IMY's sandbox with the four major banks concluded account-level sharing needs
+        <b style="color:var(--text)">legislative change</b> (IMY-2024-14275). The attack in
+        scenario 2 uses an IBAN: exactly the uncovered space.</p>
     </div>
   </div>
   <p class="footline" style="font-size:20px; margin-top:36px">Our <span class="mono">account_registry</span>
-    is not science fiction — <b>it is KAR for Sweden</b>, and this demo is what the day after the
-    legislation looks like. The slice buildable today, we built: mod-10 validation plus parsed
-    public Bankgirot ownership, because parsing beats waiting for an API that does not exist.</p>
+    is not science fiction: <b>it is KAR for Sweden, and Bankgirocentralen is the obvious
+    operator</b>. Extend what it already does for bankgiro numbers to accounts and IBANs,
+    behind an API banks query before paying. The slice buildable today, we built:
+    mod-10 validation plus parsed public Bankgirot ownership.</p>
 </div></section>
 
 <!-- 12 · roadmap -->
@@ -480,14 +483,14 @@
       lesson). Validated end-to-end at BLOCK 92%; not in this submission.</p></div>
     <div class="card"><h3>Out-of-band verification <span class="chip stub">PLACEHOLDER</span></h3>
       <p>One click on a blocked case emails the supplier's previously known contact for
-      confirmation — the arbiter already names the safe channel.</p></div>
+      confirmation. The arbiter already names the safe channel.</p></div>
     <div class="card"><h3>Production SCA flow <span class="chip stub">PLACEHOLDER</span></h3>
       <p>Sandbox uses the decoupled flow that auto-finalises; production payment execution
-      needs the redirect flow — a real human, real BankID, a callback.</p></div>
+      needs the redirect flow: a real human, real BankID, a callback.</p></div>
     <div class="card"><h3>Terms &amp; new-supplier drift <span class="chip live">LIVE TODAY</span></h3>
       <p>terms_changed and new_supplier claims already flow through the same trial.</p></div>
     <div class="card"><h3>ERP cross-checks <span class="chip stub">PLACEHOLDER</span></h3>
-      <p>"Does this invoice exist in the other system?" — one more EvidenceTool, same interface.</p></div>
+      <p>"Does this invoice exist in the other system?": one more EvidenceTool, same interface.</p></div>
     <div class="card"><h3>High-risk double-check agents <span class="chip stub">PLACEHOLDER</span></h3>
       <p>A second adversarial pass for verdicts near the threshold, before a human ever sees them.</p></div>
   </div>

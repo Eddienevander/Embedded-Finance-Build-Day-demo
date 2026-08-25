@@ -28,7 +28,7 @@ from app.orchestrator import (
     set_real_integrations,
 )
 from app.replay import available_recordings, has_recording, replay_scenario
-from app.seed import SCENARIOS, make_scenario_invoices
+from app.seed import SCENARIOS, make_scenario_invoices, seed
 from app.tools.openpayments_real import (
     OpenPaymentsError,
     OpenPaymentsPISClient,
@@ -206,6 +206,19 @@ async def sync_zwapgrid() -> dict:
                    f"{summary['new']} new (staged for review — select one and run verification), "
                    f"{summary['skipped_already_seen']} already seen.")
     return summary
+
+
+@app.post("/demo/reset")
+async def reset_demo() -> dict:
+    """Wipe invoices, cases and payments and reseed the supplier baselines,
+    without restarting the server. Lets a rehearsal or stage run start from a
+    blank slate and re-fire the same scenarios."""
+    seed(get_db())  # resets every table, then rebuilds 12 months of history
+    CASES.clear()
+    await bus.emit("reset", "system", "done",
+                   "Demo data reset: invoices and cases cleared, supplier baselines reseeded.",
+                   payload={"reset": True})
+    return {"ok": True}
 
 
 @app.get("/demo/recordings")
@@ -418,7 +431,7 @@ async def rerun(case_id: str) -> dict:
     invoice = db.get_invoice(case.claim.invoice_id)
     if invoice is None:
         raise HTTPException(409, "the invoice for this case is not on file "
-                                 "(replayed case?) — fire the live scenario instead")
+                                 "(replayed case?): fire the live scenario instead")
     rerun_case(case, invoice, db.get_baseline(case.claim.supplier_orgnr), db)
     return case.model_dump(mode="json")
 

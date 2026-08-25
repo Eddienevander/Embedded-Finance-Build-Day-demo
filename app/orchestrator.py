@@ -125,10 +125,13 @@ async def run_case(case: VerificationCase, invoice: Invoice,
                                             case.arguments, baseline)
 
         case.finished_at = datetime.now(timezone.utc)
+        verdict_label = ("VERIFY_MANUALLY, a human decides"
+                         if case.verdict.decision == "verify_manually"
+                         else f"{case.verdict.decision.upper()} "
+                              f"({case.verdict.confidence:.0%})")
         await _transition(
             case, CaseStatus.DONE,
-            f"{case.id}: verdict {case.verdict.decision.upper()} "
-            f"({case.verdict.confidence:.0%}) — awaiting human decision",
+            f"{case.id}: verdict {verdict_label}, awaiting human decision",
             db, include_case=True,
         )
     except Exception as e:

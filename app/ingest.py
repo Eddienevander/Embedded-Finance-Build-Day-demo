@@ -28,7 +28,7 @@ def detect_claims(
     if baseline is None:
         return [claim(
             ClaimType.NEW_SUPPLIER,
-            f"First invoice ever from {invoice.supplier_name} ({invoice.supplier_orgnr}) — no payment history.",
+            f"First invoice ever from {invoice.supplier_name} ({invoice.supplier_orgnr}): no payment history.",
             {"supplier_orgnr": (None, invoice.supplier_orgnr)},
         )]
 
@@ -67,15 +67,16 @@ def detect_claims(
 _ORGNR_RE = re.compile(r"^\d{6}-\d{4}$")
 
 
-def placeholder_reason(invoice: Invoice) -> str | None:
+def placeholder_reason(invoice: Invoice, known_supplier: bool = False) -> str | None:
     """Why an invoice is a placeholder/test record rather than a real one.
     Live feeds (the Zwapgrid sandbox, for one) contain seed rows like
-    amount 0.00, orgnr "1", account "UNKNOWN" — running four LLM agents on
-    those wastes a minute of demo time and clutters the case queue. Returns
-    None for anything worth verifying."""
+    amount 0.00 and account "UNKNOWN". Returns None for anything worth
+    verifying. A supplier we already hold a baseline for skips the orgnr
+    format check: the sandbox's real supplier is keyed by a bare Fortnox
+    supplier number ("1"), not an organisationsnummer."""
     if invoice.amount_sek <= 0:
         return f"non-positive amount ({invoice.amount_sek:g} SEK)"
-    if not _ORGNR_RE.match(invoice.supplier_orgnr.strip()):
+    if not known_supplier and not _ORGNR_RE.match(invoice.supplier_orgnr.strip()):
         return f"malformed orgnr ({invoice.supplier_orgnr!r})"
     if invoice.bank_account.strip().upper() in ("", "UNKNOWN"):
         return "no bank account on the invoice"
@@ -87,14 +88,15 @@ async def process_invoice(invoice: Invoice, db: Database, force: bool = False) -
     auto-approve or spawn one verification case per claim. Returns the created
     cases (empty on auto-approve or quarantine).
 
-    `force=True` skips the placeholder check — it's a default recommendation
+    `force=True` skips the placeholder check: it is a default recommendation
     for automatic intake (sync, scripted scenarios), not an unoverridable
-    block. A human deliberately reviewing a specific invoice (e.g. testing
-    the agent pipeline against real-but-malformed sandbox data) can send it
+    block. A human deliberately reviewing a specific invoice can send it
     through anyway."""
     from app.orchestrator import start_case  # late import to avoid a cycle
 
-    reason = None if force else placeholder_reason(invoice)
+    baseline = db.get_baseline(invoice.supplier_orgnr)
+    reason = None if force else placeholder_reason(invoice,
+                                                   known_supplier=baseline is not None)
     if reason is not None:
         db.insert_invoice(invoice, status="invalid")
         await bus.emit(invoice.id, "system", "done",
@@ -104,7 +106,6 @@ async def process_invoice(invoice: Invoice, db: Database, force: bool = False) -
                                 "quarantined": True})
         return []
 
-    baseline = db.get_baseline(invoice.supplier_orgnr)
     priors = db.get_invoices_for(invoice.supplier_orgnr)
 
     await bus.emit(invoice.id, "detector", "thinking",
@@ -114,7 +115,7 @@ async def process_invoice(invoice: Invoice, db: Database, force: bool = False) -
     if not claims:
         db.insert_invoice(invoice, status="auto_approved")
         await bus.emit(invoice.id, "detector", "done",
-                       "No change-of-state claims — matches supplier baseline.")
+                       "No change-of-state claims: matches supplier baseline.")
         await bus.emit(invoice.id, "system", "done",
                        f"Invoice {invoice.id} ({invoice.amount_sek:,.0f} SEK to "
                        f"{invoice.supplier_name}) auto-approved: no claims detected.",

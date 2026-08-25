@@ -130,27 +130,45 @@ class ZwapgridRealTool:
     async def fetch_incoming_invoices(self, limit: int | None = None) -> list[Invoice]:
         """Poll supplier invoices for the connected Consent. Pass `limit` to
         stop after roughly that many (one page, sized to the limit, instead
-        of paginating through everything) — the sandbox has a real rate
+        of paginating through everything): the sandbox has a real rate
         limit (429, confirmed live) and a live consent can hold dozens of
-        rows, most of it placeholder/seed data not worth an API call to see."""
+        rows, most of it placeholder/seed data not worth an API call to see.
+
+        The LIST endpoint strips notes (observed: "notes": [] on rows whose
+        single-invoice GET returns the full text), and notes are the only
+        place payment routing appears in this feed. So each kept invoice is
+        followed by a detail GET, and the detail's notes win."""
         if not config.ZWAPGRID_CONSENT_ID:
             raise RuntimeError("ZWAPGRID_CONSENT_ID is not set")
 
+        base = f"{config.ZWAPGRID_BASE_URL}/consents/{config.ZWAPGRID_CONSENT_ID}/supplierinvoices"
         invoices: list[Invoice] = []
         page = 1
         page_size = min(limit, 100) if limit else 100
         async with httpx.AsyncClient(timeout=30) as client:
+            async def hydrate_notes(item: dict) -> None:
+                if item.get("notes"):
+                    return
+                try:
+                    detail_resp = await client.get(f"{base}/{item['id']}",
+                                                   headers=self._headers())
+                    detail_resp.raise_for_status()
+                    detail = detail_resp.json()
+                    detail = detail.get("data", detail)  # tolerate both shapes
+                    item["notes"] = detail.get("notes") or []
+                except httpx.HTTPError:
+                    pass  # fall through with empty notes -> account "UNKNOWN"
+
             while True:
-                resp = await client.get(
-                    f"{config.ZWAPGRID_BASE_URL}/consents/{config.ZWAPGRID_CONSENT_ID}/supplierinvoices",
-                    headers=self._headers(),
-                    params={"Count": page_size, "CurrentPage": page},
-                )
+                resp = await client.get(base, headers=self._headers(),
+                                        params={"Count": page_size, "CurrentPage": page})
                 resp.raise_for_status()
                 body = resp.json()
-                invoices.extend(_to_invoice(item) for item in body["data"])
-                if limit and len(invoices) >= limit:
-                    return invoices[:limit]
+                for item in body["data"]:
+                    await hydrate_notes(item)
+                    invoices.append(_to_invoice(item))
+                    if limit and len(invoices) >= limit:
+                        return invoices
                 if page >= body["meta"]["totalPages"]:
                     break
                 page += 1

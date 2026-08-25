@@ -2,11 +2,13 @@
 
 The precedent is real: Norway's KAR (Konto- og adresseringsregister, operated
 by the banks through Bits) lets a bank verify that an account belongs to the
-person or company being paid, before paying. Sweden has no equivalent — IMY's
-bank-data-sharing sandbox (IMY-2024-14275) concluded that sharing of this kind
-needs legislative change. This mock shows what fraud detection looks like the
-day Sweden has its KAR. See app/tools/bankgirot.py for the slice that is
-already buildable by parsing public Bankgirot data.
+person or company being paid, before paying. Sweden's closest thing is
+Bankgirocentralen, which maps bankgiro numbers to owners but covers no
+accounts or IBANs and has no API; IMY's bank-data-sharing sandbox
+(IMY-2024-14275) concluded account-level sharing needs legislative change.
+This mock shows what fraud detection looks like the day Sweden has its KAR,
+with Bankgirocentralen as the natural operator. See app/tools/bankgirot.py
+for the slice already buildable by parsing public Bankgirot data.
 """
 
 from pydantic import BaseModel, Field
