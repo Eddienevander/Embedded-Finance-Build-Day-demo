@@ -248,6 +248,65 @@
      At the end, you get a score, and a human decides.</p>
 </div></section>
 
+<!-- 2 · problem, who, why -->
+<section class="slide"><div class="inner">
+  <h2>One field changed.</h2>
+  <div class="cols">
+    <div class="invoice" aria-label="An invoice where only the bank account differs">
+      <div class="head"><b>Nordisk Ställning AB</b><span>INVOICE · F2026-8841</span></div>
+      <div class="frow"><span class="k">Supplier</span><span class="v ok">known · 30 payments</span></div>
+      <div class="frow"><span class="k">Amount</span><span class="v ok">187 400 SEK · in range</span></div>
+      <div class="frow"><span class="k">Reference</span><span class="v ok">correct</span></div>
+      <div class="frow"><span class="k">Layout, logo, contact name</span><span class="v ok">identical</span></div>
+      <div class="frow bad"><span class="k">Bank account</span><span class="v">SE45 5000 0000 0583 9825 7466</span></div>
+      <div class="note">"Vi har bytt bank, vänligen använd vårt nya konto."</div>
+    </div>
+    <div>
+      <div class="stat"><div class="n">232 862</div>
+        <div class="l">reported fraud offences in Sweden, 2025 (Brå)</div></div>
+      <div class="stat"><div class="n">100–150 bn SEK</div>
+        <div class="l">the yearly cost of organised crime, laundering and fraud (police estimate)</div></div>
+      <p class="lede" style="font-size:19px">She pays it. She authenticates properly. Every
+        control passes. <b>The account belongs to a private person, opened 19 days ago.</b></p>
+    </div>
+  </div>
+  <p class="footline"><b>Who we built this for:</b> everyone who approves supplier invoices.
+    Accounts-payable teams, the 800 000 Swedish companies with no finance function, and the
+    financiers funding their receivables. They are trusted, busy, and exactly who this fraud
+    targets.</p>
+</div></section>
+
+<!-- 3 · how + what we solve -->
+<section class="slide"><div class="inner">
+  <h2>Fraud lives in change. So we put change on trial.</h2>
+  <div class="cols" style="grid-template-columns: 1fr 1.3fr;">
+    <div>
+      <div class="card" style="margin-bottom:12px"><h3>1 · Intercept</h3>
+        <p>Every incoming invoice is diffed against the supplier's own history. No LLM, under a second.</p></div>
+      <div class="card" style="margin-bottom:12px"><h3>2 · Put it on trial</h3>
+        <p>Any change becomes a claim: agents gather evidence, argue both sides, and issue a verdict with a safe next step.</p></div>
+      <div class="card"><h3>3 · Human decides, money moves</h3>
+        <p>Approval executes the payment for real and registers it back in the ERP. A block never pays.</p></div>
+    </div>
+    <div>
+      <table>
+        <thead><tr><th>Situation</th><th>Outcome</th></tr></thead>
+        <tbody>
+          <tr><td>Routine invoice, matches history</td><td class="vd auto">AUTO-APPROVED · &lt;1s</td></tr>
+          <tr><td>Known supplier, swapped bank account</td><td class="vd block">BLOCKED · 95%</td></tr>
+          <tr><td>Fabricated supplier, no history</td><td class="vd block">BLOCKED · 95%</td></tr>
+          <tr><td>Same receivable submitted twice</td><td class="vd block">BLOCKED · 90%</td></tr>
+          <tr class="hl"><td>Supplier genuinely changed banks</td><td class="vd verify">PASSES · sent to a human</td></tr>
+        </tbody>
+      </table>
+      <p class="footline" style="margin-top:16px"><b>Why it works:</b> the fraud survives every
+        control a single party runs. Verification that crosses parties, supplier history, public
+        registers, payment rails, is what finally catches it, and what legitimate changes pass
+        through.</p>
+    </div>
+  </div>
+</div></section>
+
 <!-- 5 · evidence tools -->
 <section class="slide"><div class="inner">
   <h2>Six independent sources.<br>One confident decision.</h2>
